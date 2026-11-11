@@ -1,17 +1,41 @@
+'use client'
+
 import Link from 'next/link'
+import { DishariLogo } from '@/components/shared/DishariLogo'
+import { ArrowLeft } from 'lucide-react'
+import { useLanguage } from '@/lib/language-context'
+import { t } from '@/lib/translations'
 
 export default function NotFound() {
+  const { lang } = useLanguage()
+
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">
-      <p className="text-8xl font-extrabold text-stone-200">৪০৪</p>
-      <h1 className="text-xl font-medium text-stone-700 mt-4">পৃষ্ঠাটি খুঁজে পাওয়া যায়নি</h1>
-      <p className="text-stone-500 mt-2 text-center">আপনি যে পৃষ্ঠাটি খুঁজছেন সেটি পাওয়া যায়নি।</p>
-      <Link
-        href="/"
-        className="mt-6 inline-flex items-center bg-green-600 hover:bg-green-700 text-white rounded-xl px-6 h-12 font-medium transition-colors"
-      >
-        হোম পেজে ফিরে যান →
-      </Link>
+    <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 bg-[#F5F6F8] py-16">
+      <div className="border border-neutral-200 bg-white p-8 sm:p-10 text-center max-w-lg rounded-none shadow-xs border-t-3 border-t-[#006A4E]">
+        <Link href="/" className="mb-5 inline-block">
+          <DishariLogo
+            theme="light"
+            lang={lang}
+            className="h-8 sm:h-9 w-auto"
+          />
+        </Link>
+        <p className="font-mono text-5xl sm:text-6xl font-black text-neutral-300 tracking-wider">
+          {lang === 'bn' ? '৪০৪' : '404'}
+        </p>
+        <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 mt-2">
+          {t('notFound', 'title', lang)}
+        </h1>
+        <p className="text-neutral-600 mt-2 text-xs sm:text-sm leading-relaxed max-w-sm mx-auto">
+          {t('notFound', 'desc', lang)}
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-flex items-center gap-2 border border-[#006A4E] bg-[#006A4E] hover:bg-[#004D38] text-white px-5 py-2.5 font-bold text-xs uppercase tracking-wider transition-colors rounded-none shadow-xs"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{t('notFound', 'backHome', lang)}</span>
+        </Link>
+      </div>
     </div>
   )
 }

@@ -43,46 +43,55 @@ export function CategoryGrid() {
   const { lang } = useLanguage()
 
   return (
-    <section className="py-16 lg:py-24 px-4">
+    <section className="py-10 lg:py-14 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
-        {/* Heading */}
-        <h2 className="text-2xl lg:text-3xl font-bold text-stone-900 text-center mb-2">
-          {t('sections', 'categories', lang)}
-        </h2>
-        <p className="text-stone-500 text-center mb-10">
-          {lang === 'bn'
-            ? 'আপনার প্রয়োজন অনুযায়ী ক্যাটাগরি বেছে নিন'
-            : 'Choose a category based on your need'}
-        </p>
+        {/* Section Header — Clean Windows 10 Typography */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 pb-3 border-b border-neutral-200 gap-2">
+          <div>
+            <h2 className="text-xl lg:text-2xl font-bold text-neutral-900 tracking-tight">
+              {t('sections', 'categories', lang)}
+            </h2>
+            <p className="text-xs sm:text-sm text-neutral-500 mt-0.5">
+              {t('sections', 'categoriesSub', lang)}
+            </p>
+          </div>
+          <Link
+            href="/services"
+            className="text-xs font-semibold text-[#006A4E] hover:underline flex items-center gap-1 self-start sm:self-auto win-press"
+          >
+            <span>{t('sections', 'viewAll', lang)}</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
 
-        {/* Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+        {/* Windows 10 Flat Paper Tiles Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {CATEGORY_ORDER.map((slug) => {
             const meta = CATEGORY_META[slug]
             const Icon = CATEGORY_ICONS[slug]
+            const primaryName = lang === 'bn' ? meta.name_bn : meta.name_en
+            const secondaryName = lang === 'bn' ? meta.name_en : meta.name_bn
 
             return (
               <Link
                 key={slug}
                 href={`/services?category=${slug}`}
-                className={`bg-white rounded-2xl p-5 lg:p-6 border border-stone-200 border-l-4 ${meta.borderColor} shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group`}
+                className="win-tile p-4 group flex items-start gap-3.5 rounded-none border-l-3 border-l-transparent hover:border-l-[#006A4E]"
               >
-                {/* Icon */}
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${meta.bgColor}`}
-                >
-                  <Icon className={`w-6 h-6 ${meta.color}`} />
+                {/* Crisp Icon */}
+                <div className="mt-0.5 shrink-0">
+                  <Icon className={`w-5 h-5 ${meta.color}`} />
                 </div>
 
-                {/* Name */}
-                <p className="font-semibold text-stone-800">{meta.name_bn}</p>
-                <p className="text-sm text-stone-500 mt-0.5">{meta.name_en}</p>
-
-                {/* View link */}
-                <p className="text-sm text-stone-500 mt-3 flex items-center gap-1">
-                  {lang === 'bn' ? 'সেবা দেখুন' : 'View services'}
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </p>
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-sm sm:text-base text-neutral-900 group-hover:text-[#006A4E] transition-colors leading-snug truncate">
+                    {primaryName}
+                  </h3>
+                  <p className="text-xs text-neutral-400 font-medium truncate mt-0.5">
+                    {secondaryName}
+                  </p>
+                </div>
               </Link>
             )
           })}
@@ -91,3 +100,5 @@ export function CategoryGrid() {
     </section>
   )
 }
+
+export default CategoryGrid

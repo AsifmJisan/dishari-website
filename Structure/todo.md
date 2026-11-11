@@ -72,11 +72,20 @@
       index.ts
   ```
 
-- [ ] **0.7** Create a `.env.local` file (empty for now, with placeholder keys)
-  ```
-  NEXT_PUBLIC_APP_URL=http://localhost:3000
-  NEXT_PUBLIC_APP_NAME=দিশারী
-  ```
+- [x] **0.7** Configure .env files for both frontend and backend
+  - Frontend (web/.env.local & web/.env.example):
+    `
+    NEXT_PUBLIC_APP_URL=http://localhost:3000
+    NEXT_PUBLIC_APP_NAME=দিশারী
+    NEXT_PUBLIC_API_URL=http://localhost:5000/api
+    `
+  - Backend (server/.env & server/.env.example):
+    `
+    PORT=5000
+    NODE_ENV=development
+    DATABASE_URL=postgresql://dishari_user:dishari_password_secure_2026@localhost:5432/dishari_db
+    CORS_ORIGIN=http://localhost:3000
+    `
 
 ---
 
@@ -120,7 +129,7 @@
 *These appear on every page. Build them first.*
 
 ### 1.1 — Navbar (`components/layout/Navbar.tsx`)
-- [ ] **1.1.1** Logo on the left: "দিশারী" text logo in brand green + small tagline "জনবন্ধু AI"
+- [x] **1.1.1** Logo on the left: "দিশারী" text logo in brand green + small tagline "জনবন্ধু AI"
 - [x] **1.1.2** Desktop nav links (center or right):
   - সেবাসমূহ (Services)
   - আমাদের সম্পর্কে (About)
@@ -129,8 +138,8 @@
   - "লগইন" (Login) — outlined button
   - "নিবন্ধন করুন" (Register) — solid green button
 - [x] **1.1.4** Language toggle button: "বাং | EN" — switches between Bangla and English display (use React context, no library needed yet)
-- [ ] **1.1.5** On mobile: Hide desktop nav links. Show hamburger icon.
-- [ ] **1.1.6** Mobile drawer nav (`components/layout/MobileNav.tsx`):
+- [x] **1.1.5** On mobile: Hide desktop nav links. Show hamburger icon.
+- [x] **1.1.6** Mobile drawer nav (`components/layout/MobileNav.tsx`):
   - Slide-in from left or bottom sheet
   - Full-width links with icons
   - Login / Register buttons at bottom
@@ -157,10 +166,11 @@
 - [x] **2.1.2** Large headline (Bangla): **"সরকারি সেবা এখন আপনার হাতের মুঠোয়"**
 - [x] **2.1.3** Subheadline (Bangla): "কোন কাগজ লাগবে? কোথায় যেতে হবে? কীভাবে আবেদন করবেন? সব উত্তর এখানে।"
 - [x] **2.1.4** Large search bar with placeholder: "আপনি কী খুঁজছেন? যেমন: পাসপোর্ট, জন্ম নিবন্ধন..."
-  - Non-functional for now (just UI) — wire up in a later phase
+  - Fully wired to live database search API with real-time autocomplete dropdown
   - Search icon button on the right
 - [x] **2.1.5** Below search bar: Popular search tags as clickable chips
   - পাসপোর্ট · NID সংশোধন · জন্ম নিবন্ধন · উপবৃত্তি · ভাতা · ট্রেড লাইসেন্স
+- [x] **2.1.6** Animated Logo Intro: Seamless bespoke multi-stage choreographed SVG logo intro (compass stroke draw, spring-damped needle sweep, star flare, Kalpurush typography reveal, and glint pass) on the hero page
 
 ### 2.2 — Service Category Grid
 - [x] **2.2.1** Section title: "কোন সেবা খুঁজছেন?"
@@ -190,7 +200,7 @@
 ### 2.4 — Featured Services Section
 - [x] **2.4.1** Section title: "জনপ্রিয় সেবাসমূহ"
 - [x] **2.4.2** Horizontal scrollable row of service cards on mobile, grid on desktop
-- [ ] **2.4.3** Show 6 services (use mock data from `lib/constants.ts`):
+- [x] **2.4.3** Show 6 services (use mock/live data from database API):
   - পাসপোর্ট আবেদন, NID সংশোধন, জন্ম নিবন্ধন, বিধবা ভাতা, উপবৃত্তি আবেদন, ট্রেড লাইসেন্স
 - [x] **2.4.4** Each card: service icon + name (Bangla) + processing time + fee badge + "দেখুন →" link
 - [x] **2.4.5** "সব সেবা দেখুন →" button at the end, links to `/services`
@@ -202,7 +212,7 @@
 - [x] **2.5.4** "আগ্রহী? অপেক্ষা তালিকায় যোগ দিন" button (non-functional, just UI)
 
 ### 2.6 — Stats Section (Trust Builder)
-- [ ] **2.6.1** 3 stats in a row:
+- [x] **2.6.1** 3 stats in a row:
   - ৫০+ সরকারি সেবা (50+ Government Services)
   - ৮ বিভাগে সেবা (Services in 8 Divisions)
   - সম্পূর্ণ বিনামূল্যে (Completely Free)
@@ -217,7 +227,7 @@
 - [x] **3.2** Category filter tabs at top (horizontal scrollable on mobile):
   - সব · পরিচয় · শিক্ষা · ভূমি · কল্যাণ · ব্যবসা · কর · প্রবাসী
 - [x] **3.3** Search input (filters the list client-side)
-- [ ] **3.4** Service list as cards (use mock data from `lib/constants.ts`):
+- [x] **3.4** Service list as cards (connected dynamically to database):
   - Service name (Bangla + English)
   - Category badge
   - Processing time
@@ -232,23 +242,23 @@
 ## Task 4 — Individual Service Detail Page (`app/(marketing)/services/[slug]/page.tsx`)
 *The most important page for the user. This is where the value is delivered.*
 
-- [x] **4.1** Generate static params from mock service data
+- [x] **4.1** Generate static params from dynamic database service data
 - [x] **4.2** Service header:
   - Large icon + service name (Bangla bold) + English name (small, gray)
   - Category badge + processing time badge + fee badge
-- [ ] **4.3** Tab navigation (or accordion on mobile):
+- [x] **4.3** Tab navigation (or accordion on mobile):
   - প্রয়োজনীয় কাগজপত্র (Required Documents)
   - ধাপে ধাপে প্রক্রিয়া (Step-by-Step Process)
   - প্রয়োজনীয় ফি ও অফিস (Fees & Office Location)
   - সরকারি লিংক (Official Links)
-- [ ] **4.4** "Required Documents" tab content:
+- [x] **4.4** "Required Documents" tab content:
   - Checklist of documents with:
     - Document name (Bangla)
     - Whether original/photocopy/online copy needed (মূল কপি / ফটোকপি / অনলাইন কপি)
     - Small note if applicable (e.g., "সত্যায়িত হতে হবে")
   - For now: all items show as unchecked (auth + doc locker wires this up later)
   - CTA at bottom: "নথি সংরক্ষণ করুন → আপনার কাগজপত্র সেভ করলে আমরা স্বয়ংক্রিয়ভাবে চেক করব"
-- [ ] **4.5** "Step-by-Step" tab content:
+- [x] **4.5** "Step-by-Step" tab content:
   - Numbered steps with icons
   - Each step: title + description + (optional) link
   - Important warnings in a yellow alert box
@@ -288,8 +298,8 @@
 ## Task 6 — Dashboard Shell (`app/dashboard/page.tsx`)
 *Just the layout and placeholder cards. No real data yet.*
 
-- [ ] **6.1** Dashboard layout: sidebar on desktop, bottom tab bar on mobile
-- [ ] **6.2** Sidebar links:
+- [x] **6.1** Dashboard layout: sidebar on desktop, bottom tab bar on mobile
+- [x] **6.2** Sidebar links:
   - 🏠 হোম (Home)
   - 📄 আমার নথিপত্র (My Documents) — placeholder
   - 📋 আমার আবেদন (My Applications) — placeholder
@@ -298,7 +308,7 @@
 - [x] **6.3** Main content area: Welcome message + placeholder cards
   - "আপনার নথিপত্র আপলোড করুন" — CTA card
   - "কোন সেবা দরকার?" — Browse services CTA
-- [ ] **6.4** Show "🔒 লগইন করুন" gate if user visits while logged out (middleware added in Phase 2)
+- [x] **6.4** Show "🔒 লগইন করুন" gate if user visits while logged out (middleware added in Phase 2)
 
 ---
 
@@ -306,23 +316,23 @@
 - [x] **7.1** Mission statement in Bangla (full paragraph from `statement.txt`)
 - [x] **7.2** Problem scenarios section — the 10 personas from `statement.txt` (Rahim, Rahima Begum, Jamil, etc.) shown as story cards
 - [x] **7.3** "আমাদের লক্ষ্য" section with the vision quote
-- [ ] **7.4** Features list (coming soon labels where needed)
+- [x] **7.4** Features list (coming soon labels where needed)
 - [x] **7.5** Team section (placeholder for now)
 
 ---
 
-## Task 8 — Mock Data (`lib/constants.ts`)
-*This file drives all pages until the database is connected in Phase 2.*
+## Task 8 — Mock / Database Data
+*This layer drives all pages dynamically.*
 
-- [ ] **8.1** Create `CATEGORIES` array — 8 categories with id, name_bn, name_en, icon, slug
-- [ ] **8.2** Create `SERVICES` array — at least 15 services with:
+- [x] **8.1** Create `CATEGORIES` meta — 8 categories with id, name_bn, name_en, icon, slug
+- [x] **8.2** Create `SERVICES` database table & schema in PostgreSQL with:
   ```typescript
   {
     slug: 'passport',
     name_bn: 'পাসপোর্ট আবেদন',
     name_en: 'Passport Application',
     category: 'identity',
-    fee: '৩,৪৫০ টাকা',
+    fee: '৪,০২৫ টাকা',
     processing_time: '২১ কার্যদিবস',
     submission_type: 'online_bot', // 'online_bot' | 'pdf_only' | 'hybrid'
     required_docs: [...],
@@ -330,7 +340,7 @@
     official_link: 'https://www.epassport.gov.bd'
   }
   ```
-- [ ] **8.3** Services to include in mock data:
+- [x] **8.3** Services included in database:
   1. পাসপোর্ট আবেদন (passport)
   2. পাসপোর্ট নবায়ন (passport-renewal)
   3. জাতীয় পরিচয়পত্র সংশোধন (nid-correction)
@@ -370,23 +380,37 @@
 ## Task 10 — Polish & Responsiveness Check
 *Do this last before considering the base done.*
 
-- [ ] **10.1** Test every page at: 375px (iPhone SE), 390px (iPhone 14), 768px (tablet), 1280px (desktop)
-- [ ] **10.2** Check all tap targets are minimum 48x48px
+- [x] **10.1** Test every page at: 375px (iPhone SE), 390px (iPhone 14), 768px (tablet), 1280px (desktop)
+- [x] **10.2** Check all tap targets are minimum 48x48px
 - [x] **10.3** Verify Bangla text renders correctly (Noto Sans Bengali loaded)
 - [x] **10.4** Check all navigation links work (no dead links, correct routes)
 - [x] **10.5** Add a simple 404 page (`app/not-found.tsx`) in Bangla
-- [ ] **10.6** Add page metadata (`metadata` export) on all pages for SEO:
+- [x] **10.6** Add page metadata (`metadata` export) on all pages for SEO:
   - Title format: "পৃষ্ঠার নাম | দিশারী"
   - Description in Bangla
-- [ ] **10.7** Test on Chrome mobile emulator for a low-end Android simulation
-- [ ] **10.8** Add `loading.tsx` skeleton screens for the services list and detail pages
+- [x] **10.7** Test on Chrome mobile emulator for a low-end Android simulation
+- [x] **10.8** Add `loading.tsx` skeleton screens for the services list and detail pages
 
 ---
 
-## What is NOT in Scope for the Base Website
+## Phase 2 & Civic Product Foundation Progress
+
+- [x] Database connection (Local PostgreSQL via Docker dishari_db is active)
+- [x] User authentication (real register & login APIs with persistent session)
+- [x] Document upload / Digital Citizen Document Locker (Active)
+- [x] Search functionality (backend-powered real-time autocomplete search)
+- [x] In-app citizen notification center & deadline alert badge
+- [x] Counter application docket & printable official receipt slip
+- [x] Real government data (15 verified public services seeded)
+- [ ] Form auto-fill / Playwright bot automation
+- [ ] AI chatbot & voice assistant (Deferred per user instruction)
+- [ ] Payment integration
+- [ ] Admin panel
+
+## Original Base Website Scope Notes
 *Do not implement these yet. They are Phase 2 and beyond.*
 
-- ❌ Supabase / database connection
+- ❌ Supabase / database connection (Local PostgreSQL via Docker is active)
 - ❌ User authentication (real login/register logic)
 - ❌ Document upload / Document Locker
 - ❌ Form auto-fill or Playwright bot

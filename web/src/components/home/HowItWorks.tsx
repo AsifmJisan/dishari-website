@@ -13,78 +13,65 @@ export function HowItWorks() {
       icon: Search,
       title: t('steps', 'step1Title', lang),
       desc: t('steps', 'step1Desc', lang),
-      emphasized: false,
     },
     {
       num: 2,
       icon: ClipboardList,
       title: t('steps', 'step2Title', lang),
       desc: t('steps', 'step2Desc', lang),
-      emphasized: false,
     },
     {
       num: 3,
       icon: CheckCircle2,
       title: t('steps', 'step3Title', lang),
       desc: t('steps', 'step3Desc', lang),
-      emphasized: true,
     },
   ]
 
   return (
-    <section id="how-it-works" className="py-16 lg:py-24 px-4 bg-stone-50/50">
+    <section id="how-it-works" className="py-10 lg:py-14 px-4 bg-white">
       <div className="max-w-6xl mx-auto">
-        {/* Heading */}
-        <h2 className="text-2xl lg:text-3xl font-bold text-stone-900 text-center mb-2">
-          {t('sections', 'howItWorks', lang)}
-        </h2>
-        <p className="text-stone-500 text-center mb-10">
-          {lang === 'bn'
-            ? 'মাত্র ৩টি ধাপে আপনার সেবা পান'
-            : 'Get your service in just 3 steps'}
-        </p>
+        {/* Section Header — Clean Windows 10 Typography */}
+        <div className="mb-6 pb-3 border-b border-neutral-200">
+          <h2 className="text-xl lg:text-2xl font-bold text-neutral-900 tracking-tight">
+            {t('sections', 'howItWorks', lang)}
+          </h2>
+          <p className="text-xs sm:text-sm text-neutral-500 mt-0.5">
+            {t('sections', 'howItWorksSub', lang)}
+          </p>
+        </div>
 
-        {/* Steps */}
-        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8 lg:gap-0">
-          {steps.map((step, index) => (
-            <div key={step.num} className="flex flex-col lg:flex-row items-center flex-1">
-              {/* Step card */}
+        {/* Seamless 3-Step Flat Flow */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {steps.map((step) => {
+            const stepSerial = lang === 'bn' ? `০${step.num}` : `0${step.num}`
+
+            return (
               <div
-                className={`flex flex-col items-center text-center w-full max-w-xs ${
-                  step.emphasized
-                    ? 'bg-green-50 border border-green-200 rounded-2xl p-6'
-                    : 'p-6'
-                }`}
+                key={step.num}
+                className="bg-white border border-neutral-200 p-5 rounded-none border-t-3 border-t-neutral-300 hover:border-t-[#006A4E] transition-colors"
               >
-                {/* Step number */}
-                <div className="w-10 h-10 rounded-full bg-green-600 text-white font-bold flex items-center justify-center text-lg">
-                  {step.num}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-mono text-xs font-bold text-neutral-400">
+                    {stepSerial}
+                  </span>
+                  <step.icon className="w-5 h-5 text-[#006A4E]" />
                 </div>
 
-                {/* Icon */}
-                <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mt-4">
-                  <step.icon className="w-8 h-8 text-green-600" />
-                </div>
-
-                {/* Title */}
-                <p className="font-semibold text-stone-800 text-center mt-4">
+                <h3 className="font-bold text-neutral-900 text-sm sm:text-base leading-snug">
                   {step.title}
-                </p>
+                </h3>
 
-                {/* Description */}
-                <p className="text-sm text-stone-500 text-center mt-2 max-w-xs mx-auto">
+                <p className="text-xs text-neutral-600 mt-1.5 leading-relaxed">
                   {step.desc}
                 </p>
               </div>
-
-              {/* Connecting dashed line (hidden on mobile, hidden after last step) */}
-              {index < steps.length - 1 && (
-                <div className="hidden lg:block flex-1 border-t-2 border-dashed border-green-200 self-center w-full" />
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
   )
 }
+
+export default HowItWorks
