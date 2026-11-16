@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import {
   X,
   Send,
@@ -12,16 +13,275 @@ import {
   Info,
   Volume2,
   VolumeX,
-  Sparkles
+  Sparkles,
+  Navigation,
+  ArrowRight,
+  ExternalLink,
+  FileText,
+  Compass,
+  RotateCcw,
+  CheckCircle2,
+  Zap,
 } from 'lucide-react'
 import { useLanguage } from '@/lib/language-context'
-import { WIN10_EASE_ENTRANCE, win10DialogMotion } from '@/lib/motion'
+import { WIN10_EASE_ENTRANCE, WIN10_EASE_EXIT, win10DialogMotion } from '@/lib/motion'
+
+interface NavCard {
+  url: string
+  titleBn: string
+  titleEn: string
+  breadcrumbBn: string
+  breadcrumbEn: string
+}
 
 interface Message {
   id: string
   sender: 'ai' | 'user'
   text: string
   time: string
+  navCard?: NavCard
+}
+
+// ─── FULL WEBSITE SITEMAP FOR AI NAVIGATION ───
+interface NavEntry {
+  url: string
+  titleBn: string
+  titleEn: string
+  breadcrumbBn: string
+  breadcrumbEn: string
+  keywordsBn: string[]
+  keywordsEn: string[]
+}
+
+const SITE_NAV_MAP: NavEntry[] = [
+  {
+    url: '/services/passport',
+    titleBn: 'ই-পাসপোর্ট আবেদন',
+    titleEn: 'E-Passport Application',
+    breadcrumbBn: 'সেবা সমূহ → পরিচয় সেবা → ই-পাসপোর্ট আবেদন',
+    breadcrumbEn: 'Services → Identity → E-Passport Application',
+    keywordsBn: ['পাসপোর্ট', 'ই-পাসপোর্ট', 'পাসপোর্ট আবেদন'],
+    keywordsEn: ['passport', 'e-passport', 'passport application', 'epassport'],
+  },
+  {
+    url: '/services/passport-renewal',
+    titleBn: 'পাসপোর্ট নবায়ন',
+    titleEn: 'Passport Renewal',
+    breadcrumbBn: 'সেবা সমূহ → পরিচয় সেবা → পাসপোর্ট নবায়ন',
+    breadcrumbEn: 'Services → Identity → Passport Renewal',
+    keywordsBn: ['পাসপোর্ট নবায়ন', 'নবায়ন', 'রিনিউ'],
+    keywordsEn: ['passport renewal', 'renew passport', 'renewal'],
+  },
+  {
+    url: '/services/nid-correction',
+    titleBn: 'NID সংশোধন',
+    titleEn: 'NID Correction',
+    breadcrumbBn: 'সেবা সমূহ → পরিচয় সেবা → জাতীয় পরিচয়পত্র সংশোধন',
+    breadcrumbEn: 'Services → Identity → NID Correction',
+    keywordsBn: ['nid', 'জাতীয় পরিচয়পত্র', 'পরিচয়পত্র', 'nid সংশোধন', 'সংশোধন'],
+    keywordsEn: ['nid', 'national id', 'nid correction', 'voter id'],
+  },
+  {
+    url: '/services/birth-registration',
+    titleBn: 'জন্ম নিবন্ধন',
+    titleEn: 'Birth Registration',
+    breadcrumbBn: 'সেবা সমূহ → পরিচয় সেবা → জন্ম নিবন্ধন (BDRIS)',
+    breadcrumbEn: 'Services → Identity → Birth Registration (BDRIS)',
+    keywordsBn: ['জন্ম নিবন্ধন', 'জন্ম সনদ', 'নিবন্ধন'],
+    keywordsEn: ['birth registration', 'birth certificate', 'bdris'],
+  },
+  {
+    url: '/services/tin-certificate',
+    titleBn: 'টিআইএন সনদ',
+    titleEn: 'TIN Certificate',
+    breadcrumbBn: 'সেবা সমূহ → ব্যবসা ও কর → টিআইএন সনদ',
+    breadcrumbEn: 'Services → Business & Tax → TIN Certificate',
+    keywordsBn: ['টিআইএন', 'tin', 'কর শনাক্তকরণ', 'ট্যাক্স আইডি'],
+    keywordsEn: ['tin', 'tin certificate', 'tax identification'],
+  },
+  {
+    url: '/services/trade-license',
+    titleBn: 'ট্রেড লাইসেন্স',
+    titleEn: 'Trade License',
+    breadcrumbBn: 'সেবা সমূহ → ব্যবসা ও কর → ট্রেড লাইসেন্স',
+    breadcrumbEn: 'Services → Business & Tax → Trade License',
+    keywordsBn: ['ট্রেড লাইসেন্স', 'ব্যবসা লাইসেন্স', 'বাণিজ্য'],
+    keywordsEn: ['trade license', 'business license', 'trade'],
+  },
+  {
+    url: '/services/widow-allowance',
+    titleBn: 'বিধবা ভাতা',
+    titleEn: 'Widow Allowance',
+    breadcrumbBn: 'সেবা সমূহ → সামাজিক সুরক্ষা → বিধবা ভাতা',
+    breadcrumbEn: 'Services → Social Welfare → Widow Allowance',
+    keywordsBn: ['বিধবা ভাতা', 'বিধবা', 'স্বামীহারা'],
+    keywordsEn: ['widow allowance', 'widow', 'widow benefit'],
+  },
+  {
+    url: '/services/scholarship',
+    titleBn: 'উপবৃত্তি / বৃত্তি',
+    titleEn: 'Scholarship / Stipend',
+    breadcrumbBn: 'সেবা সমূহ → শিক্ষা → উপবৃত্তি ও বৃত্তি',
+    breadcrumbEn: 'Services → Education → Scholarship & Stipend',
+    keywordsBn: ['উপবৃত্তি', 'বৃত্তি', 'স্কলারশিপ', 'শিক্ষা সহায়তা'],
+    keywordsEn: ['scholarship', 'stipend', 'pmeat', 'education grant'],
+  },
+  {
+    url: '/services/tax-return',
+    titleBn: 'আয়কর রিটার্ন',
+    titleEn: 'Income Tax Return',
+    breadcrumbBn: 'সেবা সমূহ → ব্যবসা ও কর → আয়কর রিটার্ন',
+    breadcrumbEn: 'Services → Business & Tax → Income Tax Return',
+    keywordsBn: ['আয়কর', 'ট্যাক্স রিটার্ন', 'কর রিটার্ন', 'ইনকাম ট্যাক্স'],
+    keywordsEn: ['tax return', 'income tax', 'income tax return'],
+  },
+  {
+    url: '/services/land-mutation',
+    titleBn: 'ই-নামজারি (ভূমি)',
+    titleEn: 'E-Mutation (Land)',
+    breadcrumbBn: 'সেবা সমূহ → ভূমি সেবা → ই-নামজারি',
+    breadcrumbEn: 'Services → Land Services → E-Mutation',
+    keywordsBn: ['নামজারি', 'ই-নামজারি', 'জমি', 'ভূমি', 'মিউটেশন', 'খতিয়ান'],
+    keywordsEn: ['land mutation', 'mutation', 'land', 'e-mutation', 'khatian'],
+  },
+  {
+    url: '/opportunities',
+    titleBn: 'সরকারি সুযোগ',
+    titleEn: 'Government Opportunities',
+    breadcrumbBn: 'নেভিবার → সরকারি সুযোগ',
+    breadcrumbEn: 'Navbar → Opportunities',
+    keywordsBn: ['সুযোগ', 'অনুদান', 'গ্রান্ট', 'সুযোগ-সুবিধা'],
+    keywordsEn: ['opportunities', 'grants', 'government opportunities'],
+  },
+  {
+    url: '/dashboard?tab=locker',
+    titleBn: 'ডকুমেন্ট লকার',
+    titleEn: 'Document Locker',
+    breadcrumbBn: 'ড্যাশবোর্ড → ডকুমেন্ট লকার ট্যাব',
+    breadcrumbEn: 'Dashboard → Document Locker tab',
+    keywordsBn: ['লকার', 'ডকুমেন্ট লকার', 'কাগজপত্র', 'ডকুমেন্ট'],
+    keywordsEn: ['locker', 'document locker', 'documents', 'my documents'],
+  },
+  {
+    url: '/dashboard?tab=applications',
+    titleBn: 'আমার আবেদন',
+    titleEn: 'My Applications',
+    breadcrumbBn: 'ড্যাশবোর্ড → আমার আবেদন ট্যাব',
+    breadcrumbEn: 'Dashboard → My Applications tab',
+    keywordsBn: ['আবেদন', 'আমার আবেদন', 'আবেদনের তালিকা'],
+    keywordsEn: ['applications', 'my applications', 'application list'],
+  },
+  {
+    url: '/dashboard?tab=deadlines',
+    titleBn: 'ডেডলাইন রাডার',
+    titleEn: 'Deadlines Radar',
+    breadcrumbBn: 'ড্যাশবোর্ড → ডেডলাইন রাডার ট্যাব',
+    breadcrumbEn: 'Dashboard → Deadlines Radar tab',
+    keywordsBn: ['ডেডলাইন', 'সময়সীমা', 'শেষ তারিখ'],
+    keywordsEn: ['deadlines', 'deadline radar', 'due dates'],
+  },
+  {
+    url: '/dashboard?tab=opportunities',
+    titleBn: 'সুযোগ ট্যাব',
+    titleEn: 'Opportunities Tab',
+    breadcrumbBn: 'ড্যাশবোর্ড → সুযোগ ট্যাব',
+    breadcrumbEn: 'Dashboard → Opportunities tab',
+    keywordsBn: ['ড্যাশবোর্ড সুযোগ'],
+    keywordsEn: ['dashboard opportunities'],
+  },
+  {
+    url: '/dashboard?tab=settings',
+    titleBn: 'প্রোফাইল সেটিংস',
+    titleEn: 'Profile Settings',
+    breadcrumbBn: 'ড্যাশবোর্ড → সেটিংস ট্যাব',
+    breadcrumbEn: 'Dashboard → Settings tab',
+    keywordsBn: ['সেটিংস', 'প্রোফাইল', 'অ্যাকাউন্ট'],
+    keywordsEn: ['settings', 'profile', 'account settings'],
+  },
+  {
+    url: '/dashboard',
+    titleBn: 'ড্যাশবোর্ড',
+    titleEn: 'Dashboard',
+    breadcrumbBn: 'নেভিবার → ড্যাশবোর্ড',
+    breadcrumbEn: 'Navbar → Dashboard',
+    keywordsBn: ['ড্যাশবোর্ড'],
+    keywordsEn: ['dashboard', 'my dashboard'],
+  },
+  {
+    url: '/services',
+    titleBn: 'সকল সেবা',
+    titleEn: 'All Services',
+    breadcrumbBn: 'নেভিবার → সেবা সমূহ',
+    breadcrumbEn: 'Navbar → Services',
+    keywordsBn: ['সেবা', 'সকল সেবা', 'সেবা সমূহ', 'সার্ভিস'],
+    keywordsEn: ['services', 'all services', 'service directory'],
+  },
+  {
+    url: '/login',
+    titleBn: 'লগইন',
+    titleEn: 'Login',
+    breadcrumbBn: 'নেভিবার → লগইন',
+    breadcrumbEn: 'Navbar → Login',
+    keywordsBn: ['লগইন', 'সাইন ইন', 'প্রবেশ করুন'],
+    keywordsEn: ['login', 'sign in', 'log in'],
+  },
+  {
+    url: '/register',
+    titleBn: 'নিবন্ধন',
+    titleEn: 'Register',
+    breadcrumbBn: 'নেভিবার → নিবন্ধন',
+    breadcrumbEn: 'Navbar → Register',
+    keywordsBn: ['নিবন্ধন', 'রেজিস্ট্রেশন', 'অ্যাকাউন্ট তৈরি'],
+    keywordsEn: ['register', 'sign up', 'create account'],
+  },
+  {
+    url: '/about',
+    titleBn: 'আমাদের সম্পর্কে',
+    titleEn: 'About',
+    breadcrumbBn: 'নেভিবার → সম্পর্কে',
+    breadcrumbEn: 'Navbar → About',
+    keywordsBn: ['সম্পর্কে', 'আমাদের সম্পর্কে', 'পরিচিতি'],
+    keywordsEn: ['about', 'about us', 'who we are'],
+  },
+  {
+    url: '/',
+    titleBn: 'হোম পেজ',
+    titleEn: 'Home Page',
+    breadcrumbBn: 'নেভিবার → হোম',
+    breadcrumbEn: 'Navbar → Home',
+    keywordsBn: ['হোম', 'প্রথম পাতা', 'মূল পাতা'],
+    keywordsEn: ['home', 'home page', 'main page'],
+  },
+]
+
+// Intent trigger words (navigation verbs)
+const NAV_TRIGGERS_EN = ['take me to', 'go to', 'open', 'show me', 'navigate to', 'navigate', 'find', 'where is', 'bring me to', 'i want to go to', 'i need to go to']
+const NAV_TRIGGERS_BN = ['নিয়ে যান', 'নিয়ে যাও', 'দেখান', 'খুলুন', 'যাও', 'যেতে চাই', 'কোথায়', 'খুঁজে দাও', 'নিয়ে চলো', 'এখানে নিয়ে যাও']
+
+function resolveNavigationIntent(text: string): NavEntry | null {
+  const lower = text.toLowerCase().trim()
+
+  // Check if the message has a navigation trigger word
+  const hasNavTrigger =
+    NAV_TRIGGERS_EN.some((t) => lower.includes(t)) ||
+    NAV_TRIGGERS_BN.some((t) => lower.includes(t))
+
+  if (!hasNavTrigger) return null
+
+  // Find the best matching nav entry (most specific match wins — longer keyword = more specific)
+  let bestMatch: NavEntry | null = null
+  let bestLen = 0
+
+  for (const entry of SITE_NAV_MAP) {
+    for (const kw of [...entry.keywordsEn, ...entry.keywordsBn]) {
+      if (lower.includes(kw.toLowerCase()) && kw.length > bestLen) {
+        bestMatch = entry
+        bestLen = kw.length
+      }
+    }
+  }
+
+  return bestMatch
 }
 
 export function JonobondhuChat() {
@@ -33,6 +293,7 @@ export function JonobondhuChat() {
 
   const { lang } = useLanguage()
   const isBn = lang === 'bn'
+  const router = useRouter()
 
   const [isOpen, setIsOpen] = useState(false)
 
@@ -83,17 +344,64 @@ export function JonobondhuChat() {
     currentY: number
   } | null>(null)
 
+  // Welcome & Civic Guide Screen State
+  const [showHeroGreeting, setShowHeroGreeting] = useState(false)
+  const [hasCheckedFirstOpen, setHasCheckedFirstOpen] = useState(false)
+
+  // Floating Bubble visibility (synchronized with window morph animation)
+  const [isBubbleVisible, setIsBubbleVisible] = useState(true)
+
+  // Autonomous AI Navigation HUD Overlay State (Promo Teleport Animation)
+  const [navTransition, setNavTransition] = useState<{
+    isActive: boolean
+    targetUrl: string
+    titleBn: string
+    titleEn: string
+    breadcrumbBn: string
+    breadcrumbEn: string
+    phase: 'locking' | 'warping' | 'arrived'
+  } | null>(null)
+
   // Dimensions
   const BUBBLE_SIZE = 64
-  const WINDOW_WIDTH = 380
-  const WINDOW_HEIGHT = 520
+  const WINDOW_WIDTH = 430
+  const WINDOW_HEIGHT = 600
   const EDGE_PADDING = 16
+
+  // Viewport calculation using clientWidth/Height to exclude Windows scrollbar for exact edge symmetry
+  const getViewportWidth = useCallback(() => {
+    if (typeof document !== 'undefined' && document.documentElement.clientWidth) {
+      return document.documentElement.clientWidth
+    }
+    return typeof window !== 'undefined' ? window.innerWidth : 1280
+  }, [])
+
+  const getViewportHeight = useCallback(() => {
+    if (typeof document !== 'undefined' && document.documentElement.clientHeight) {
+      return document.documentElement.clientHeight
+    }
+    return typeof window !== 'undefined' ? window.innerHeight : 800
+  }, [])
+
+  // Trigger welcome guide when opened for the first time
+  useEffect(() => {
+    if (isOpen && !hasCheckedFirstOpen) {
+      setHasCheckedFirstOpen(true)
+      const seen = typeof window !== 'undefined' ? sessionStorage.getItem('dishari_civic_welcome_seen') : null
+      if (!seen) {
+        setShowHeroGreeting(true)
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('dishari_civic_welcome_seen', 'true')
+        }
+      }
+    }
+  }, [isOpen, hasCheckedFirstOpen])
 
   // Initialize responsive default positions on mount
   useEffect(() => {
     const initPositions = () => {
-      const vw = window.innerWidth
-      const vh = window.innerHeight
+      const vw = getViewportWidth()
+      const vh = getViewportHeight()
 
       // Default: snapped to the right wall, middle-lower viewport
       const defBubbleX = Math.max(EDGE_PADDING, vw - BUBBLE_SIZE - EDGE_PADDING)
@@ -111,7 +419,7 @@ export function JonobondhuChat() {
     initPositions()
     window.addEventListener('resize', initPositions)
     return () => window.removeEventListener('resize', initPositions)
-  }, [])
+  }, [getViewportWidth, getViewportHeight])
 
   // Initial welcome message in selected language
   useEffect(() => {
@@ -138,6 +446,17 @@ export function JonobondhuChat() {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, isOpen])
+
+  // Close with Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [isOpen])
 
   // ─── POINTER CAPTURE: BUBBLE DRAG & FLING LOGIC ───
   const handleBubblePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -191,8 +510,8 @@ export function JonobondhuChat() {
       drag.lastTime = now
     }
 
-    const vw = window.innerWidth
-    const vh = window.innerHeight
+    const vw = getViewportWidth()
+    const vh = getViewportHeight()
 
     // Bound position inside viewport with edge padding
     const rawX = drag.initialElemX + dx
@@ -221,13 +540,14 @@ export function JonobondhuChat() {
     setIsDraggingBubble(false)
 
     if (!hadMoved) {
-      // It was a crisp click/tap! Open the chat window.
+      // It was a crisp click/tap! Open the chat window with morph
+      setIsBubbleVisible(false)
       setIsOpen(true)
       return
     }
 
-    // SNAP TO CLOSEST SCREEN WALL (Horizontal magnet snap)
-    const vw = window.innerWidth
+    // SNAP TO CLOSEST SCREEN WALL (Horizontal magnet snap) - 100% Symmetrical
+    const vw = getViewportWidth()
     const midX = vw / 2
     let snapX = EDGE_PADDING
 
@@ -254,6 +574,10 @@ export function JonobondhuChat() {
 
   // ─── POINTER CAPTURE: CHAT WINDOW DRAGGING ───
   const handleWindowPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // If user clicked on a button (e.g. close button), ignore drag capture
+    if ((e.target as HTMLElement).closest('button')) {
+      return
+    }
     if (e.button !== 0) return
     e.preventDefault()
 
@@ -284,8 +608,8 @@ export function JonobondhuChat() {
     const dx = e.clientX - drag.startX
     const dy = e.clientY - drag.startY
 
-    const vw = window.innerWidth
-    const vh = window.innerHeight
+    const vw = getViewportWidth()
+    const vh = getViewportHeight()
     const wWidth = Math.min(WINDOW_WIDTH, vw - 24)
     const wHeight = Math.min(WINDOW_HEIGHT, vh - 40)
 
@@ -403,7 +727,63 @@ export function JonobondhuChat() {
       setMessages((prev) => [...prev, userMsg])
       if (!textOverride) setInput('')
 
-      // Intelligent simulated civic knowledge engine
+      // ─── STEP 1: NAVIGATION INTENT DETECTION ───
+      const navMatch = resolveNavigationIntent(text)
+      if (navMatch) {
+        setTimeout(() => {
+          const navCard: NavCard = {
+            url: navMatch.url,
+            titleBn: navMatch.titleBn,
+            titleEn: navMatch.titleEn,
+            breadcrumbBn: navMatch.breadcrumbBn,
+            breadcrumbEn: navMatch.breadcrumbEn,
+          }
+
+          const aiMsg: Message = {
+            id: `ai-nav-${Date.now()}`,
+            sender: 'ai',
+            text: isBn
+              ? `স্বয়ংক্রিয় নেভিগেশন সক্রিয়! আপনাকে "${navMatch.titleBn}" পৃষ্ঠায় নিয়ে যাচ্ছি...`
+              : `Autonomous navigation engaged! Taking you to "${navMatch.titleEn}"...`,
+            time: new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            navCard,
+          }
+
+          setMessages((prev) => [...prev, aiMsg])
+
+          // Trigger Autonomous Navigation HUD & Laser Sweep Overlay
+          setNavTransition({
+            isActive: true,
+            targetUrl: navMatch.url,
+            titleBn: navMatch.titleBn,
+            titleEn: navMatch.titleEn,
+            breadcrumbBn: navMatch.breadcrumbBn,
+            breadcrumbEn: navMatch.breadcrumbEn,
+            phase: 'warping',
+          })
+
+          // Execute client router navigation after dramatic scan/warp build-up
+          setTimeout(() => {
+            router.push(navMatch.url)
+
+            // Mark as successfully arrived
+            setTimeout(() => {
+              setNavTransition((prev) => (prev ? { ...prev, phase: 'arrived' } : null))
+
+              // Dismiss HUD after celebration
+              setTimeout(() => {
+                setNavTransition(null)
+              }, 1200)
+            }, 400)
+          }, 950)
+        }, 320)
+        return
+      }
+
+      // ─── STEP 2: CIVIC KNOWLEDGE KEYWORD ENGINE ───
       setTimeout(() => {
         let reply = ''
         const lower = text.toLowerCase()
@@ -479,7 +859,7 @@ export function JonobondhuChat() {
         setMessages((prev) => [...prev, aiMsg])
       }, 450)
     },
-    [input, isBn]
+    [input, isBn, router]
   )
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -506,6 +886,51 @@ export function JonobondhuChat() {
         'Online application process for student stipend?',
       ]
 
+  // ─── CIVIC SERVICE SHOWCASE CARDS ───
+  const introCards = [
+    {
+      title: isBn ? 'ই-পাসপোর্ট আবেদন' : 'E-Passport Application',
+      desc: isBn ? 'ফি হিসাব, প্রয়োজনীয় কাগজপত্র ও সরাসরি পেজে যান' : 'Fee calculation, papers & direct navigation',
+      prompt: isBn ? 'পাসপোর্ট আবেদন পাতায় নিয়ে যান' : 'Take me to passport application',
+      icon: <Navigation className="w-3.5 h-3.5" />,
+    },
+    {
+      title: isBn ? 'জমির ই-নামজারি' : 'Land Mutation (E-Namjari)',
+      desc: isBn ? 'বাবার মৃত্যুর পর ওয়ারিশি জমির রেকর্ড ও খতিয়ান' : 'Inheritance succession & mutation guide',
+      prompt: isBn ? 'বাবার মৃত্যুর পর জমির নামজারি কীভাবে করব?' : 'How to apply for land mutation after father’s death?',
+      icon: <FileText className="w-3.5 h-3.5" />,
+    },
+    {
+      title: isBn ? 'ডকুমেন্ট লকার' : 'Document Locker',
+      desc: isBn ? 'স্মার্ট এনআইডি ও জরুরি কাগজপত্র সংরক্ষণ' : 'Saved citizen documents & radar',
+      prompt: isBn ? 'আমার ডকুমেন্ট লকার দেখান' : 'Show me my document locker',
+      icon: <Compass className="w-3.5 h-3.5" />,
+    },
+    {
+      title: isBn ? 'ভয়েস সহায়ক' : 'Bangla Voice Assistant',
+      desc: isBn ? 'মাইক্রোফোনে ক্লিক করে মুখে কথা বলুন' : 'Speak naturally in Bangla or English',
+      prompt: '',
+      isVoice: true,
+      icon: <Mic className="w-3.5 h-3.5" />,
+    },
+  ]
+
+  const handleIntroCardClick = (promptText: string, isVoice = false) => {
+    setShowHeroGreeting(false)
+    if (isVoice) {
+      setTimeout(() => {
+        toggleListening()
+      }, 300)
+    } else if (promptText) {
+      setTimeout(() => {
+        handleSendMessage(promptText)
+      }, 100)
+    }
+  }
+
+  // Check if bubble is currently closer to left wall
+  const isSnappedLeft = (bubblePos?.x ?? 9999) < (getViewportWidth() / 2)
+
   // Dynamic positioning styles
   const bubbleStyle: React.CSSProperties = {
     position: 'fixed',
@@ -513,28 +938,194 @@ export function JonobondhuChat() {
     top: bubblePos ? `${bubblePos.y}px` : undefined,
     right: !bubblePos ? `${EDGE_PADDING}px` : undefined,
     bottom: !bubblePos ? '64px' : undefined,
+    width: `${BUBBLE_SIZE}px`,
+    height: `${BUBBLE_SIZE}px`,
     zIndex: 9999,
     touchAction: 'none',
     transition: isSnappingBubble ? 'left 0.28s cubic-bezier(0.1, 0.9, 0.2, 1), top 0.28s cubic-bezier(0.1, 0.9, 0.2, 1)' : 'none',
   }
 
-  const windowStyle: React.CSSProperties = {
-    position: 'fixed',
-    left: windowPos ? `${windowPos.x}px` : undefined,
-    top: windowPos ? `${windowPos.y}px` : undefined,
-    right: !windowPos ? `${EDGE_PADDING}px` : undefined,
-    bottom: !windowPos ? '24px' : undefined,
-    width: `min(${WINDOW_WIDTH}px, calc(100vw - 24px))`,
-    height: `min(${WINDOW_HEIGHT}px, calc(100vh - 40px))`,
-    zIndex: 99999,
+  // Computed coordinates for flawless FLIP morphing between bubble and window
+  const currentVw = getViewportWidth()
+  const currentVh = getViewportHeight()
+  const targetWidth = Math.min(WINDOW_WIDTH, currentVw - 24)
+  const targetHeight = Math.min(WINDOW_HEIGHT, currentVh - 40)
+
+  const defBubbleX = Math.max(EDGE_PADDING, currentVw - BUBBLE_SIZE - EDGE_PADDING)
+  const defBubbleY = Math.max(EDGE_PADDING, currentVh - BUBBLE_SIZE - (currentVw < 768 ? 96 : 48))
+  const startX = bubblePos ? bubblePos.x : defBubbleX
+  const startY = bubblePos ? bubblePos.y : defBubbleY
+
+  const defWinX = Math.max(EDGE_PADDING, currentVw - targetWidth - EDGE_PADDING)
+  const defWinY = Math.max(EDGE_PADDING, currentVh - targetHeight - (currentVw < 768 ? 84 : 28))
+  const endX = windowPos ? windowPos.x : defWinX
+  const endY = windowPos ? windowPos.y : defWinY
+
+  const morphVariants = {
+    initial: {
+      left: startX,
+      top: startY,
+      width: BUBBLE_SIZE,
+      height: BUBBLE_SIZE,
+      borderRadius: BUBBLE_SIZE / 2,
+      borderColor: '#006A4E',
+      borderWidth: 2,
+      boxShadow: '0 10px 25px -5px rgba(0, 106, 78, 0.35)',
+    },
+    animate: {
+      left: endX,
+      top: endY,
+      width: targetWidth,
+      height: targetHeight,
+      borderRadius: 0,
+      borderColor: '#D4D4D4',
+      borderWidth: 1,
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+      transition: isDraggingWindow
+        ? { duration: 0 }
+        : {
+            duration: 0.36,
+            ease: WIN10_EASE_ENTRANCE,
+          },
+    },
+    exit: {
+      left: startX,
+      top: startY,
+      width: BUBBLE_SIZE,
+      height: BUBBLE_SIZE,
+      borderRadius: BUBBLE_SIZE / 2,
+      borderColor: '#006A4E',
+      borderWidth: 2,
+      boxShadow: '0 10px 25px -5px rgba(0, 106, 78, 0.35)',
+      transition: {
+        duration: 0.3,
+        ease: WIN10_EASE_EXIT,
+      },
+    },
   }
 
   if (!mounted) return null
 
   return (
     <>
-      {/* ─── MOVABLE FLOATING MESSENGER BUBBLE ─── */}
-      {!isOpen && (
+      {/* ─── AI AUTONOMOUS NAVIGATION HUD OVERLAY (PROMO TELEPORT) ─── */}
+      <AnimatePresence>
+        {navTransition?.isActive && (
+          <div className="fixed inset-0 pointer-events-none z-[999999] overflow-hidden flex flex-col justify-between">
+            {/* Ambient Darkened Backdrop with subtle glass tint */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="absolute inset-0 bg-neutral-950/30 backdrop-blur-[2px]"
+            />
+
+            {/* Sweeping Laser Scanner Beam (Full-Screen Sci-Fi Scan) */}
+            <motion.div
+              initial={{ top: '-10%', opacity: 0 }}
+              animate={{ top: '110%', opacity: [0, 1, 1, 0] }}
+              transition={{ duration: 1.2, ease: [0.4, 0, 0.2, 1], repeat: 1, repeatDelay: 0.15 }}
+              className="absolute left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#00E599] to-transparent shadow-[0_0_24px_8px_rgba(0,229,153,0.8)]"
+            />
+
+            {/* Top Island AI HUD Banner */}
+            <div className="relative pt-6 w-full max-w-lg mx-auto px-4 z-10">
+              <motion.div
+                initial={{ opacity: 0, y: -28, scale: 0.94 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -24, scale: 0.94 }}
+                transition={{ duration: 0.32, ease: WIN10_EASE_ENTRANCE }}
+                className="w-full bg-neutral-900/95 border-2 border-[#006A4E] text-white p-4 shadow-2xl rounded-none backdrop-blur-md"
+              >
+                {/* Top Banner Status Bar */}
+                <div className="flex items-center justify-between border-b border-neutral-700/80 pb-2.5 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#00E599]" />
+                    </span>
+                    <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-emerald-400">
+                      {isBn ? 'জনবন্ধু AI স্বয়ংক্রিয় নেভিগেশন' : 'Jonobondhu AI Autonomous Transit'}
+                    </span>
+                  </div>
+
+                  <span className="font-mono text-[10px] text-neutral-300 font-semibold px-2 py-0.5 bg-neutral-800 border border-neutral-700">
+                    {navTransition.phase === 'arrived'
+                      ? (isBn ? '✓ গন্তব্যে উপস্থিত' : '✓ Arrived')
+                      : (isBn ? '⚡ স্থানান্তর হচ্ছে...' : '⚡ Teleporting...')}
+                  </span>
+                </div>
+
+                {/* Target Destination & Breadcrumb */}
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-white border-2 border-emerald-400 flex items-center justify-center shrink-0 shadow-lg">
+                    <img
+                      src="/icons/jonobondhu.svg"
+                      alt="AI"
+                      className="w-7 h-7 object-contain"
+                    />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono text-neutral-400 uppercase">
+                        {isBn ? 'টার্গেট সেবা:' : 'Target Service:'}
+                      </span>
+                      <h4 className="text-sm sm:text-base font-extrabold text-white truncate">
+                        {isBn ? navTransition.titleBn : navTransition.titleEn}
+                      </h4>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-300 mt-1 truncate">
+                      <span>
+                        {isBn ? navTransition.breadcrumbBn : navTransition.breadcrumbEn}
+                      </span>
+                    </div>
+                  </div>
+
+                  {navTransition.phase === 'arrived' ? (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center shrink-0 text-white shadow-md"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                    </motion.div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-xs font-mono text-emerald-400 shrink-0">
+                      <Zap className="w-4 h-4 animate-pulse text-amber-300" />
+                    </div>
+                  )}
+                </div>
+
+                {/* High-tech Progress Energy Bar */}
+                <div className="w-full bg-neutral-800 h-1.5 mt-3 overflow-hidden rounded-none relative">
+                  <motion.div
+                    initial={{ width: '0%' }}
+                    animate={{ width: navTransition.phase === 'arrived' ? '100%' : '88%' }}
+                    transition={{
+                      duration: navTransition.phase === 'arrived' ? 0.2 : 0.9,
+                      ease: 'easeInOut',
+                    }}
+                    className="h-full bg-gradient-to-r from-[#006A4E] via-[#00E599] to-emerald-400"
+                  />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Bottom Cyber-HUD Indicator */}
+            <div className="relative pb-6 text-center z-10">
+              <span className="inline-block px-3 py-1 bg-neutral-900/90 text-emerald-400 font-mono text-[10px] uppercase tracking-widest border border-neutral-700/80 shadow-md">
+                {isBn ? 'দিশারী পোর্টাল ডিরেক্টরি রুট লকিং...' : 'Dishari Portal Route Locking...'}
+              </span>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── MOVABLE FLOATING MESSENGER BUBBLE (100% SYMMETRICAL) ─── */}
+      {!isOpen && isBubbleVisible && (
         <div
           ref={bubbleRef}
           style={bubbleStyle}
@@ -553,38 +1144,71 @@ export function JonobondhuChat() {
           aria-label={isBn ? 'জনবন্ধু AI চ্যাট খুলুন' : 'Open Jonobondhu AI Chat'}
           title={isBn ? 'জনবন্ধু AI (টেনে সরানো যাবে)' : 'Jonobondhu AI (Movable)'}
         >
-          {/* Bubble Housing */}
-          <div className="relative w-15 h-15 sm:w-16 sm:h-16 rounded-full bg-white border-2 border-[#006A4E] shadow-none flex items-center justify-center overflow-visible pointer-events-none">
+          {/* Bubble Housing (Uniform 64px on both left and right edges) */}
+          <div className="relative w-16 h-16 rounded-full bg-white border-2 border-[#006A4E] shadow-lg flex items-center justify-center overflow-visible pointer-events-none">
             <img
               src="/icons/jonobondhu.svg"
               alt="Jonobondhu AI"
-              className="w-11 h-11 sm:w-12 sm:h-12 object-contain pointer-events-none select-none"
+              className="w-12 h-12 object-contain pointer-events-none select-none"
               draggable={false}
             />
 
-            {/* Flat Hover Tooltip */}
-            <div className="absolute right-full mr-2.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-neutral-900 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap rounded-none opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity border border-neutral-700 shadow-none">
+            {/* Flat Hover Tooltip - Dynamic Side Awareness (Never goes offscreen) */}
+            <div
+              className={`absolute top-1/2 -translate-y-1/2 px-2.5 py-1 bg-neutral-900 text-white text-[11px] font-semibold tracking-wide whitespace-nowrap rounded-none opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity border border-neutral-700 shadow-none z-50 ${
+                isSnappedLeft ? 'left-full ml-3' : 'right-full mr-3'
+              }`}
+            >
               {isBn ? 'জনবন্ধু AI' : 'Jonobondhu AI'}
             </div>
           </div>
         </div>
       )}
 
-      {/* ─── MOVABLE POP-UP AI CHAT INTERFACE WITH WINDOWS 10 WINDOW ENTRANCE ─── */}
-      <AnimatePresence>
+      {/* ─── MORPHING AI CHAT INTERFACE WITH CIRCLE-TO-WINDOW EXPANSION & CONTRACTION ─── */}
+      <AnimatePresence onExitComplete={() => setIsBubbleVisible(true)}>
         {isOpen && (
           <motion.div
-            style={windowStyle}
-            variants={win10DialogMotion}
+            variants={morphVariants}
             initial="initial"
             animate="animate"
             exit="exit"
-            className="jonobondhu-window flex flex-col bg-white border border-neutral-300 rounded-none select-none overflow-hidden shadow-2xl"
+            style={{
+              position: 'fixed',
+              zIndex: 99999,
+              overflow: 'hidden',
+              backgroundColor: '#ffffff',
+            }}
+            className="jonobondhu-window flex flex-col select-none border"
           >
-            {/* Top 3px Bangladesh Green Accent Line */}
-            <div className="h-[3px] bg-[#006A4E] w-full shrink-0" />
+            {/* ─── MORPH TRANSITION ICON (Visible during circular collapse/expansion) ─── */}
+            <motion.div
+              initial={{ opacity: 1, scale: 1 }}
+              animate={{ opacity: 0, scale: 0.7 }}
+              exit={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.16 }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
+            >
+              <img
+                src="/icons/jonobondhu.svg"
+                alt="Jonobondhu"
+                className="w-12 h-12 object-contain select-none"
+                draggable={false}
+              />
+            </motion.div>
 
-            {/* ─── MOVABLE TITLEBAR ─── */}
+            {/* ─── WINDOW CONTENT CONTAINER (Fades in smoothly as window expands) ─── */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, delay: 0.08 }}
+              className="flex-1 flex flex-col h-full min-h-0 overflow-hidden"
+            >
+              {/* Top 3px Bangladesh Green Accent Line */}
+              <div className="h-[3px] bg-[#006A4E] w-full shrink-0" />
+
+              {/* ─── MOVABLE TITLEBAR ─── */}
             <div
               onPointerDown={handleWindowPointerDown}
               onPointerMove={handleWindowPointerMove}
@@ -607,17 +1231,42 @@ export function JonobondhuChat() {
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="font-bold text-xs sm:text-sm text-neutral-900 leading-none truncate">
-                    {isBn ? 'জনবন্ধু AI' : 'Jonobondhu AI'}
-                  </h3>
-                  <span className="text-[10px] text-neutral-500 font-medium block mt-1 truncate">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-xs sm:text-sm text-neutral-900 leading-none truncate">
+                      {isBn ? 'জনবন্ধু AI' : 'Jonobondhu AI'}
+                    </h3>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  </div>
+                  <span className="text-[10px] text-neutral-500 font-medium block mt-0.5 truncate">
                     {isBn ? 'নাগরিক সেবা সহায়ক' : 'Civic Service Assistant'}
                   </span>
                 </div>
               </div>
 
-              {/* Action Buttons: Drag indicator & Close Cross */}
+              {/* Action Buttons: Guide Toggle, Drag indicator & Close Cross */}
               <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowHeroGreeting((prev) => !prev)
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border transition-colors cursor-pointer rounded-none win-press ${
+                    showHeroGreeting
+                      ? 'bg-[#006A4E] text-white border-[#004D38]'
+                      : 'bg-emerald-50 text-[#006A4E] border-emerald-300 hover:bg-emerald-100'
+                  }`}
+                  title={isBn ? 'জনবন্ধু সেবা নির্দেশিকা ও ওভারভিউ' : 'Jonobondhu Service Guide & Overview'}
+                >
+                  <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span className="hidden sm:inline font-mono">
+                    {showHeroGreeting
+                      ? (isBn ? 'চ্যাটে যান' : 'To Chat')
+                      : (isBn ? 'নির্দেশিকা' : 'Guide')}
+                  </span>
+                </button>
+
                 <span
                   className="p-1 text-neutral-400 hover:text-neutral-600 hidden sm:inline-block cursor-grab pointer-events-none"
                   title={isBn ? 'সরান' : 'Move'}
@@ -627,174 +1276,397 @@ export function JonobondhuChat() {
 
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="w-7 h-7 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 transition-colors cursor-pointer rounded-none win-press"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsOpen(false)
+                  }}
+                  className="w-7 h-7 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 transition-colors cursor-pointer rounded-none win-press z-10"
                   title={isBn ? 'বন্ধ করুন (বাবলে ফিরুন)' : 'Close (Back to bubble)'}
                   aria-label={isBn ? 'চ্যাট বন্ধ করুন' : 'Close chat'}
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4 pointer-events-none" />
                 </button>
               </div>
             </div>
 
-            {/* ─── CONVERSATION SCROLL AREA ─── */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-[#F5F6F8] text-xs">
-              {/* System Context Pill */}
-              <div className="flex items-center justify-center">
-                <div className="inline-flex items-center gap-1.5 bg-white border border-neutral-200 px-2.5 py-1 text-[10px] text-neutral-600 rounded-none font-mono">
-                  <Info className="w-3 h-3 text-[#006A4E] shrink-0" />
-                  <span>{isBn ? 'দিশারী স্মার্ট সেবা গাইডেন্স ইন্টারফেস' : 'Dishari Smart Civic Guidance Interface'}</span>
-                </div>
-              </div>
-
-              {/* Chat Messages with Windows 10 Entrance */}
-              {messages.map((msg) => {
-                const isAi = msg.sender === 'ai'
-                return (
-                  <motion.div
-                    key={msg.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.22, ease: WIN10_EASE_ENTRANCE }}
-                    className={`flex items-start gap-2 ${isAi ? 'justify-start' : 'justify-end'}`}
-                  >
-                    {isAi && (
-                      <div className="w-6 h-6 rounded-full bg-white border border-neutral-300 flex items-center justify-center shrink-0 mt-0.5">
-                        <img
-                          src="/icons/jonobondhu.svg"
-                          alt="AI"
-                          className="w-4 h-4 object-contain pointer-events-none"
-                        />
-                      </div>
-                    )}
-
-                    <div className={`max-w-[82%] space-y-1 ${isAi ? 'items-start' : 'items-end'}`}>
-                      <div
-                        className={`p-3 rounded-none leading-relaxed text-xs sm:text-[13px] ${
-                          isAi
-                            ? 'bg-white border border-neutral-200 text-neutral-900 border-l-3 border-l-[#006A4E]'
-                            : 'bg-[#006A4E] border border-[#004D38] text-white'
-                        }`}
-                      >
-                        {msg.text}
-                      </div>
-                      <div className="flex items-center gap-2 px-1">
-                        <span className="text-[9px] font-mono text-neutral-400">
-                          {msg.time}
-                        </span>
-                        {isAi && (
-                          <button
-                            type="button"
-                            onClick={() => speakText(msg.text, msg.id)}
-                            className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 border cursor-pointer win-press transition-colors ${
-                              speakingMsgId === msg.id
-                                ? 'bg-emerald-100 text-[#006A4E] border-emerald-300 font-bold'
-                                : 'bg-neutral-50 text-neutral-500 hover:text-neutral-900 border-neutral-200'
-                            }`}
-                            title={speakingMsgId === msg.id ? (isBn ? 'থামুন' : 'Stop') : (isBn ? 'ভয়েসে শুনুন' : 'Listen')}
-                          >
-                            {speakingMsgId === msg.id ? (
-                              <>
-                                <VolumeX className="w-3 h-3 text-[#C8102E]" />
-                                <span>{isBn ? 'থামুন' : 'Stop'}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Volume2 className="w-3 h-3 text-[#006A4E]" />
-                                <span>{isBn ? 'ভয়েস শুনুন' : 'Listen'}</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {!isAi && (
-                      <div className="w-6 h-6 bg-neutral-200 border border-neutral-300 flex items-center justify-center shrink-0 mt-0.5 text-neutral-700">
-                        <User className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                  </motion.div>
-                )
-              })}
-
-              {/* Suggestion Chips */}
-              {messages.length === 1 && (
-                <div className="pt-2">
-                  <span className="text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-wide block mb-1.5">
-                    {isBn ? 'সচরাচর জিজ্ঞাসিত প্রশ্ন:' : 'Frequent Questions:'}
-                  </span>
-                  <div className="flex flex-col gap-1.5">
-                    {quickPrompts.map((prompt, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSendMessage(prompt)}
-                        className="text-left bg-white hover:bg-neutral-50 border border-neutral-200 hover:border-[#006A4E] text-neutral-800 text-[11px] p-2 transition-colors cursor-pointer rounded-none font-medium win-press"
-                      >
-                        {prompt}
-                      </button>
-                    ))}
+            {/* ─── CONDITIONAL VIEW: CIVIC WELCOME GUIDE VS CHAT ─── */}
+            {showHeroGreeting ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.25, ease: WIN10_EASE_ENTRANCE }}
+                className="flex-1 flex flex-col justify-between p-4 bg-gradient-to-b from-[#F0FDF4] via-white to-[#F8FAFC] overflow-y-auto"
+              >
+                {/* Top Civic Badge Header */}
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-200 shrink-0">
+                  <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#006A4E] text-white text-[10px] font-bold tracking-wider uppercase font-mono">
+                    <Sparkles className="w-3 h-3 text-amber-300 animate-spin" style={{ animationDuration: '4s' }} />
+                    <span>{isBn ? 'গণপ্রজাতন্ত্রী বাংলাদেশ' : 'Govt. of Bangladesh'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-700 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
+                    <span>{isBn ? 'AI ইঞ্জিন সক্রিয়' : 'Civic AI Engine'}</span>
                   </div>
                 </div>
-              )}
 
-              <div ref={messagesEndRef} />
-            </div>
+                {/* Center Visual: Holographic Ripple & Waveform */}
+                <div className="my-auto py-2 text-center flex flex-col items-center">
+                  {/* Concentric Glow Hologram Ring */}
+                  <div className="relative flex items-center justify-center mb-3">
+                    <div
+                      className="absolute w-24 h-24 rounded-full bg-emerald-500/10 animate-ping"
+                      style={{ animationDuration: '3s' }}
+                    />
+                    <div className="absolute w-20 h-20 rounded-full border border-emerald-400/40 bg-gradient-to-tr from-emerald-100/60 to-rose-100/30 animate-pulse" />
 
-            {/* ─── INPUT TERMINAL FOOTER ─── */}
-            <div className="p-2.5 bg-white border-t border-neutral-200 shrink-0">
-              <div className="flex items-center gap-1.5 border border-neutral-300 bg-white px-2.5 py-1 focus-within:border-[#006A4E] transition-colors rounded-none">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={isBn ? 'কী সরকারি সেবা প্রয়োজন? লিখুন...' : 'Ask about government services...'}
-                  className="flex-1 h-9 bg-transparent text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 outline-none font-medium"
-                />
+                    {/* Central Mascot Bubble */}
+                    <div className="relative w-16 h-16 rounded-full bg-white border-2 border-[#006A4E] shadow-xl flex items-center justify-center z-10">
+                      <img
+                        src="/icons/jonobondhu.svg"
+                        alt="Jonobondhu AI"
+                        className="w-12 h-12 object-contain select-none"
+                        draggable={false}
+                      />
+                    </div>
+                  </div>
 
-                {/* Real Working Speech-to-Text Microphone Button */}
-                <button
-                  type="button"
-                  onClick={toggleListening}
-                  className={`p-1.5 transition-colors cursor-pointer rounded-none win-press ${
-                    isListening
-                      ? 'bg-rose-100 text-[#C8102E] animate-pulse border border-rose-300'
-                      : 'text-neutral-500 hover:text-[#006A4E]'
-                  }`}
-                  title={
-                    isListening
-                      ? (isBn ? 'শুনছি... কথা বলা শেষ করতে ক্লিক করুন' : 'Listening... click to stop')
-                      : (isBn ? 'বাংলায় ভয়েসে প্রশ্ন করুন (কথা বলুন)' : 'Ask via voice (Speak in Bangla)')
-                  }
-                  aria-label={isBn ? 'ভয়েস ইনপুট' : 'Voice input'}
-                >
-                  {isListening ? <MicOff className="w-4 h-4 text-[#C8102E]" /> : <Mic className="w-4 h-4" />}
-                </button>
+                  {/* Dynamic Soundwave Equalizer Bars */}
+                  <div className="flex items-center justify-center gap-1 mb-2.5 h-4">
+                    {[35, 75, 100, 55, 90, 45, 80].map((h, i) => (
+                      <motion.span
+                        key={i}
+                        className="w-1 bg-[#006A4E] rounded-full"
+                        animate={{
+                          height: [
+                            `${Math.max(4, h * 0.18)}px`,
+                            `${h * 0.15}px`,
+                            `${Math.max(4, h * 0.18)}px`,
+                          ],
+                        }}
+                        transition={{
+                          repeat: Infinity,
+                          duration: 0.85 + i * 0.1,
+                          ease: 'easeInOut',
+                          delay: i * 0.07,
+                        }}
+                      />
+                    ))}
+                  </div>
 
-                {/* Send Button */}
-                <button
-                  type="button"
-                  onClick={() => handleSendMessage()}
-                  disabled={!input.trim()}
-                  className={`w-8 h-8 flex items-center justify-center transition-colors rounded-none shrink-0 win-press ${
-                    input.trim()
-                      ? 'bg-[#006A4E] hover:bg-[#004D38] text-white cursor-pointer'
-                      : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
-                  }`}
-                  title={isBn ? 'বার্তা পাঠান' : 'Send message'}
-                  aria-label={isBn ? 'বার্তা পাঠান' : 'Send message'}
-                >
-                  <Send className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                  {/* Hero Typography */}
+                  <motion.h2
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="text-base sm:text-lg font-extrabold text-neutral-900 tracking-tight leading-tight"
+                  >
+                    {isBn ? 'স্বাগতম! আমি জনবন্ধু' : 'Welcome! I am Jonobondhu'}
+                  </motion.h2>
 
-              <div className="flex items-center justify-between text-[10px] text-neutral-400 mt-1.5 px-0.5">
-                <span>{isBn ? 'ইন্টারফেস সংস্করণ ১.০' : 'Interface v1.0'}</span>
-                <span>{isBn ? 'দিশারী জনবন্ধু সহায়ক' : 'Dishari Jonobondhu'}</span>
-              </div>
-            </div>
+                  <motion.p
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="text-xs font-semibold text-[#006A4E] mt-0.5"
+                  >
+                    {isBn ? 'আপনার ডিজিটাল নাগরিক সেবা নির্দেশক' : 'Your Smart Civic Service Navigator'}
+                  </motion.p>
+
+                  <motion.p
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="text-[11px] text-neutral-600 mt-1 max-w-[340px] leading-relaxed"
+                  >
+                    {isBn
+                      ? 'যেকোনো সরকারি সেবা সহজে খুঁজে পেতে আমাকে বলুন, বাংলায় কথা বলুন অথবা নিচের সেবাগুলো বেছে নিন।'
+                      : 'Ask anything about citizen services, speak in natural Bangla/English, or tap an option below.'}
+                  </motion.p>
+                </div>
+
+                {/* 4 Interactive Feature Showcase Cards (2x2) */}
+                <div className="grid grid-cols-2 gap-2 my-2 shrink-0">
+                  {introCards.map((card, idx) => (
+                    <motion.button
+                      key={idx}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.18 + idx * 0.05 }}
+                      type="button"
+                      onClick={() => handleIntroCardClick(card.prompt, card.isVoice)}
+                      className="group relative p-2.5 text-left bg-white hover:bg-emerald-50/70 border border-neutral-300 hover:border-[#006A4E] transition-all cursor-pointer win-press rounded-none"
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="p-1 bg-emerald-100 text-[#006A4E] group-hover:bg-[#006A4E] group-hover:text-white transition-colors">
+                          {card.icon}
+                        </span>
+                        <span className="text-xs font-bold text-neutral-900 leading-tight">
+                          {card.title}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-neutral-500 line-clamp-2 leading-snug">
+                        {card.desc}
+                      </p>
+                    </motion.button>
+                  ))}
+                </div>
+
+                {/* CTA Bottom Bar */}
+                <div className="pt-2 border-t border-neutral-200 flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowHeroGreeting(false)}
+                    className="flex-1 py-2 px-3 bg-[#006A4E] hover:bg-[#004D38] text-white text-xs font-bold flex items-center justify-center gap-1.5 win-press transition-colors rounded-none shadow-sm cursor-pointer"
+                  >
+                    <span>{isBn ? 'কথোপকথন শুরু করুন' : 'Start Conversation'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleIntroCardClick('', true)}
+                    className="py-2 px-3 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 text-xs font-semibold flex items-center gap-1 win-press transition-colors rounded-none cursor-pointer"
+                    title={isBn ? 'ভয়েস সহকারী চালু করুন' : 'Activate Voice Assistant'}
+                  >
+                    <Mic className="w-3.5 h-3.5 text-[#006A4E]" />
+                    <span>{isBn ? 'ভয়েস' : 'Voice'}</span>
+                  </button>
+                </div>
+              </motion.div>
+            ) : (
+              <>
+                {/* ─── CONVERSATION SCROLL AREA ─── */}
+                <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-[#F5F6F8] text-xs">
+                  {/* System Context Pill with Replay Intro trigger */}
+                  <div className="flex items-center justify-between gap-2 px-0.5">
+                    <div className="inline-flex items-center gap-1.5 bg-white border border-neutral-200 px-2.5 py-1 text-[10px] text-neutral-600 rounded-none font-mono">
+                      <Info className="w-3 h-3 text-[#006A4E] shrink-0" />
+                      <span>{isBn ? 'দিশারী স্মার্ট সেবা গাইডেন্স ইন্টারফেস' : 'Dishari Smart Civic Guidance Interface'}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowHeroGreeting(true)}
+                      className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-[#006A4E] hover:underline cursor-pointer"
+                      title={isBn ? 'জনবন্ধু সেবা নির্দেশিকা দেখুন' : 'View Jonobondhu Service Guide'}
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>{isBn ? 'নির্দেশিকা' : 'Guide'}</span>
+                    </button>
+                  </div>
+
+                  {/* Chat Messages with Windows 10 Entrance */}
+                  {messages.map((msg) => {
+                    const isAi = msg.sender === 'ai'
+                    return (
+                      <motion.div
+                        key={msg.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22, ease: WIN10_EASE_ENTRANCE }}
+                        className={`flex items-start gap-2 ${isAi ? 'justify-start' : 'justify-end'}`}
+                      >
+                        {isAi && (
+                          <div className="w-6 h-6 rounded-full bg-white border border-neutral-300 flex items-center justify-center shrink-0 mt-0.5">
+                            <img
+                              src="/icons/jonobondhu.svg"
+                              alt="AI"
+                              className="w-4 h-4 object-contain pointer-events-none"
+                            />
+                          </div>
+                        )}
+
+                        <div className={`max-w-[82%] space-y-1 ${isAi ? 'items-start' : 'items-end'}`}>
+                          <div
+                            className={`p-3 rounded-none leading-relaxed text-xs sm:text-[13px] ${
+                              isAi
+                                ? 'bg-white border border-neutral-200 text-neutral-900 border-l-3 border-l-[#006A4E]'
+                                : 'bg-[#006A4E] border border-[#004D38] text-white'
+                            }`}
+                          >
+                            {msg.text}
+                            {/* ─── ENHANCED NAVIGATION TELEMETRY CARD ─── */}
+                            {msg.navCard && (
+                              <div className="mt-3 border-2 border-[#006A4E] bg-[#F0FAF5] rounded-none overflow-hidden shadow-sm">
+                                {/* Card Header with Live Teleport Status */}
+                                <div className="flex items-center justify-between px-3 py-2 bg-[#006A4E] text-white">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse shrink-0" />
+                                    <span className="text-[11px] font-bold tracking-wide uppercase truncate">
+                                      {isBn ? 'স্বয়ংক্রিয় নেভিগেশন' : 'Autonomous AI Navigation'}
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-mono text-emerald-200 shrink-0">
+                                    {isBn ? 'সক্রিয় রুট' : 'Active Route'}
+                                  </span>
+                                </div>
+
+                                {/* Breadcrumb Steps */}
+                                <div className="px-3 pt-2.5 pb-2">
+                                  <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider mb-1.5 font-bold">
+                                    {isBn ? 'পরবর্তীবার নিজে যেতে ম্যানুয়াল পথ:' : 'Manual path for next time:'}
+                                  </div>
+                                  <div className="flex items-center flex-wrap gap-1 text-[11px] font-medium text-neutral-700">
+                                    {(isBn ? msg.navCard.breadcrumbBn : msg.navCard.breadcrumbEn)
+                                      .split('→')
+                                      .map((step, i, arr) => (
+                                        <React.Fragment key={i}>
+                                          <span
+                                            className={`px-1.5 py-0.5 rounded-none border ${
+                                              i === arr.length - 1
+                                                ? 'bg-[#006A4E] text-white border-[#004D38] font-bold shadow-xs'
+                                                : 'bg-white border-neutral-300 text-neutral-700'
+                                            }`}
+                                          >
+                                            {step.trim()}
+                                          </span>
+                                          {i < arr.length - 1 && (
+                                            <ArrowRight className="w-3 h-3 text-emerald-600 shrink-0" />
+                                          )}
+                                        </React.Fragment>
+                                      ))}
+                                  </div>
+                                </div>
+
+                                {/* Direct Link Button */}
+                                <div className="px-3 pb-2.5 pt-1 border-t border-emerald-100 flex items-center justify-between">
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(msg.navCard!.url)}
+                                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#006A4E] border border-[#006A4E] px-2.5 py-1 hover:bg-[#006A4E] hover:text-white transition-colors cursor-pointer win-press rounded-none"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    <span>{isBn ? 'সরাসরি এই পাতায় যান' : 'Go directly to page'}</span>
+                                  </button>
+                                  <span className="text-[10px] font-mono text-emerald-700 font-semibold">
+                                    {msg.navCard.url}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 px-1">
+                            <span className="text-[9px] font-mono text-neutral-400">
+                              {msg.time}
+                            </span>
+                            {isAi && (
+                              <button
+                                type="button"
+                                onClick={() => speakText(msg.text, msg.id)}
+                                className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 border cursor-pointer win-press transition-colors ${
+                                  speakingMsgId === msg.id
+                                    ? 'bg-emerald-100 text-[#006A4E] border-emerald-300 font-bold'
+                                    : 'bg-neutral-50 text-neutral-500 hover:text-neutral-900 border-neutral-200'
+                                }`}
+                                title={speakingMsgId === msg.id ? (isBn ? 'থামুন' : 'Stop') : (isBn ? 'ভয়েসে শুনুন' : 'Listen')}
+                              >
+                                {speakingMsgId === msg.id ? (
+                                  <>
+                                    <VolumeX className="w-3 h-3 text-[#C8102E]" />
+                                    <span>{isBn ? 'থামুন' : 'Stop'}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Volume2 className="w-3 h-3 text-[#006A4E]" />
+                                    <span>{isBn ? 'ভয়েস শুনুন' : 'Listen'}</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {!isAi && (
+                          <div className="w-6 h-6 bg-neutral-200 border border-neutral-300 flex items-center justify-center shrink-0 mt-0.5 text-neutral-700">
+                            <User className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </motion.div>
+                    )
+                  })}
+
+                  {/* Suggestion Chips */}
+                  {messages.length === 1 && (
+                    <div className="pt-2">
+                      <span className="text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-wide block mb-1.5">
+                        {isBn ? 'সচরাচর জিজ্ঞাসিত প্রশ্ন:' : 'Frequent Questions:'}
+                      </span>
+                      <div className="flex flex-col gap-1.5">
+                        {quickPrompts.map((prompt, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleSendMessage(prompt)}
+                            className="text-left bg-white hover:bg-neutral-50 border border-neutral-200 hover:border-[#006A4E] text-neutral-800 text-[11px] p-2 transition-colors cursor-pointer rounded-none font-medium win-press"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* ─── INPUT TERMINAL FOOTER ─── */}
+                <div className="p-2.5 bg-white border-t border-neutral-200 shrink-0">
+                  <div className="flex items-center gap-1.5 border border-neutral-300 bg-white px-2.5 py-1 focus-within:border-[#006A4E] transition-colors rounded-none">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={isBn ? 'কী সরকারি সেবা প্রয়োজন? লিখুন...' : 'Ask about government services...'}
+                      className="flex-1 h-9 bg-transparent text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 outline-none font-medium"
+                    />
+
+                    {/* Real Working Speech-to-Text Microphone Button */}
+                    <button
+                      type="button"
+                      onClick={toggleListening}
+                      className={`p-1.5 transition-colors cursor-pointer rounded-none win-press ${
+                        isListening
+                          ? 'bg-rose-100 text-[#C8102E] animate-pulse border border-rose-300'
+                          : 'text-neutral-500 hover:text-[#006A4E]'
+                      }`}
+                      title={
+                        isListening
+                          ? (isBn ? 'শুনছি... কথা বলা শেষ করতে ক্লিক করুন' : 'Listening... click to stop')
+                          : (isBn ? 'বাংলায় ভয়েসে প্রশ্ন করুন (কথা বলুন)' : 'Ask via voice (Speak in Bangla)')
+                      }
+                      aria-label={isBn ? 'ভয়েস ইনপুট' : 'Voice input'}
+                    >
+                      {isListening ? <MicOff className="w-4 h-4 text-[#C8102E]" /> : <Mic className="w-4 h-4" />}
+                    </button>
+
+                    {/* Send Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleSendMessage()}
+                      disabled={!input.trim()}
+                      className={`w-8 h-8 flex items-center justify-center transition-colors rounded-none shrink-0 win-press ${
+                        input.trim()
+                          ? 'bg-[#006A4E] hover:bg-[#004D38] text-white cursor-pointer'
+                          : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                      }`}
+                      title={isBn ? 'বার্তা পাঠান' : 'Send message'}
+                      aria-label={isBn ? 'বার্তা পাঠান' : 'Send message'}
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-neutral-400 mt-1.5 px-0.5">
+                    <span>{isBn ? 'ইন্টারফেস সংস্করণ ২.০' : 'Interface v2.0'}</span>
+                    <span>{isBn ? 'দিশারী জনবন্ধু সহায়ক' : 'Dishari Jonobondhu'}</span>
+                  </div>
+                </div>
+              </>
+            )}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
