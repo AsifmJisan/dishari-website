@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import { pool } from './db.js'
 import { initDatabase } from './schema.js'
+import { runJavaScriptOCR, parseDocumentText } from './ocrEngine.js'
 
 dotenv.config()
 
@@ -143,6 +144,158 @@ app.get('/api/services/:slug', async (req, res) => {
 })
 
 // ─── DOCUMENT LOCKER ENDPOINTS ─────────────────────────────────────────────
+
+function getDocumentSkeleton(docType?: string, fileName?: string): Record<string, any> {
+  const titles: Record<string, string> = {
+    educational_transcript: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড - প্রবেশপত্র / সনদ',
+    nid_front: 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার - জাতীয় পরিচয়পত্র',
+    nid_back: 'জাতীয় পরিচয়পত্র (পেছনের পাতা)',
+    birth_certificate: 'জন্ম ও মৃত্যু নিবন্ধন কার্যালয় - জন্ম নিবন্ধন সনদপত্র',
+    tin_certificate: 'জাতীয় রাজস্ব বোর্ড (NBR) - ই-টিআইএন সনদপত্র',
+    trade_license: 'সিটি কর্পোরেশন - ই-ট্রেড লাইসেন্স',
+    citizenship_certificate: 'ইউনিয়ন পরিষদ / পৌরসভা - নাগরিকত্ব সনদ',
+  }
+
+  return {
+    doc_title: titles[docType || ''] || 'নাগরিক সরকারি নথি',
+    file_name: fileName || 'document.jpg',
+    scanned_at: new Date().toISOString(),
+    status: 'পর্যালোচনা ও তথ্য নিশ্চিতকরণ প্রয়োজন',
+    verified_source: 'Manual Verification (Image text unreadable)',
+  }
+}
+
+// AI OCR Document Scanning Endpoint (Mirrors Capture_image_info n8n workflow)
+app.post('/api/documents/scan-ocr', async (req, res) => {
+  try {
+    const { imageBase64, mimeType, docType, fileName } = req.body
+
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Missing imageBase64 data' })
+    }
+
+    // Clean base64 string if it contains prefix data:image/...;base64,
+    let cleanBase64 = imageBase64
+    let detectedMime = mimeType || 'image/jpeg'
+    if (imageBase64.includes(';base64,')) {
+      const parts = imageBase64.split(';base64,')
+      detectedMime = parts[0].replace('data:', '') || detectedMime
+      cleanBase64 = parts[1]
+    }
+
+    // 1. Try external n8n webhook if N8N_OCR_WEBHOOK_URL is set
+    if (process.env.N8N_OCR_WEBHOOK_URL) {
+      try {
+        const n8nRes = await fetch(process.env.N8N_OCR_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imagebase64: cleanBase64,
+            mimeType: detectedMime,
+            fileName: fileName || 'document.jpg',
+          }),
+        })
+        if (n8nRes.ok) {
+          const n8nJson = (await n8nRes.json()) as any
+          if (n8nJson?.document) {
+            return res.json({ success: true, document: n8nJson.document, source: 'n8n_workflow' })
+          }
+        }
+      } catch (n8nErr) {
+        console.warn('n8n webhook call failed or offline, falling back to direct AI engine:', n8nErr)
+      }
+    }
+
+    // 2. Direct Gemini 3.5 Flash call if GEMINI_API_KEY is available
+    const geminiKey = process.env.GEMINI_API_KEY
+    if (geminiKey) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`
+        const promptText = `
+Extract all text and details from this official citizen document / ID card / admit card / certificate (such as National ID, Admit Card, Birth Certificate, Trade License, or TIN).
+Return ONLY a valid JSON object (without markdown code blocks, fences, or prose) with any detected fields:
+{
+  "doc_title": "Detected Title of Document",
+  "full_name_bn": "Name in Bengali if present",
+  "full_name_en": "Name in English if present",
+  "id_number": "NID Number, Birth Reg Number, or ID Number",
+  "roll": "Student Roll Number if admit card",
+  "reg_no": "Registration Number if present",
+  "board": "Education Board if present",
+  "exam_name": "SSC / HSC / Exam name if present",
+  "dob": "Date of Birth (DD/MM/YYYY)",
+  "blood_group": "Blood Group if present",
+  "father_name": "Father's Name",
+  "mother_name": "Mother's Name",
+  "address": "Full Address if present",
+  "issue_date": "Issue Date if present"
+}`
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: promptText },
+                  {
+                    inline_data: {
+                      mime_type: detectedMime,
+                      data: cleanBase64,
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        })
+
+        if (geminiRes.ok) {
+          const geminiData = (await geminiRes.json()) as any
+          const parts = geminiData.candidates?.[0]?.content?.parts || []
+          const text = parts.map((p: any) => p.text || '').join('\n')
+
+          if (text) {
+            const match = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+            let jsonText = match ? match[1].trim() : text
+            const start = jsonText.indexOf('{')
+            const end = jsonText.lastIndexOf('}')
+            if (start !== -1 && end !== -1) {
+              jsonText = jsonText.substring(start, end + 1)
+              const parsed = JSON.parse(jsonText)
+              return res.json({ success: true, document: parsed, source: 'gemini-3.5-flash' })
+            }
+          }
+        }
+      } catch (aiErr) {
+        console.warn('Gemini AI Vision call failed, switching to JavaScript OCR:', aiErr)
+      }
+    }
+
+    // 3. Real JavaScript Vision OCR Engine (Tesseract.js)
+    try {
+      const imageBuffer = Buffer.from(cleanBase64, 'base64')
+      const jsOcr = await runJavaScriptOCR(imageBuffer, docType)
+      if (jsOcr.success && jsOcr.document) {
+        return res.json({
+          success: true,
+          document: jsOcr.document,
+          source: 'javascript_ocr',
+          rawText: jsOcr.rawText,
+        })
+      }
+    } catch (jsErr) {
+      console.warn('JavaScript OCR engine error:', jsErr)
+    }
+
+    // 4. Clean Document Skeleton (no fake hardcoded personal info)
+    const fallbackDoc = getDocumentSkeleton(docType || 'nid_front', fileName)
+    return res.json({ success: true, document: fallbackDoc, source: 'document_skeleton' })
+  } catch (error) {
+    console.error('Error in scan-ocr endpoint:', error)
+    res.status(500).json({ error: 'OCR processing failed' })
+  }
+})
 
 // Get all documents for a citizen
 app.get('/api/documents', async (req, res) => {
