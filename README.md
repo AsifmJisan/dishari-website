@@ -1,70 +1,202 @@
-<<<<<<< HEAD
 # দিশারী (Dishari)
 
-> **"সরকারি সেবা এখন আপনার হাতের মুঠোয়"**
-> Government services, now within your reach.
+> **"সরকারি সেবা এখন আপনার হাতের মুঠোয়"**  
+> *Official government services, simplified, verified, and accessible to every citizen of Bangladesh.*
 
-Dishari is a civic-tech platform that helps Bangladeshi citizens — especially rural and low-literacy users — find, understand, and apply for government services without needing to visit a computer operator or navigate complex government websites.
+[![Next.js 16.4.5](https://img.shields.io/badge/Next.js-16.4.5_Turbopack-000000?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React 19](https://img.shields.io/badge/React-19.3-61DAFB?style=flat-square&logo=react)](https://react.dev/)
+[![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4.0-06B6D4?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
+[![TypeScript 5](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Tesseract OCR v2.4](https://img.shields.io/badge/OCR-Tesseract_Bilingual_v2.4-006A4E?style=flat-square)](https://github.com/naptha/tesseract.js)
+[![Tests Passing](https://img.shields.io/badge/Tests-34%20Passed-brightgreen?style=flat-square)](./tests/)
+[![Bangladesh Civic Tech](https://img.shields.io/badge/Civic_Tech-Bangladesh-C8102E?style=flat-square)](https://bangladesh.gov.bd)
 
 ---
 
-## Repository Structure
+## 🇧🇩 Overview (পরিচিতি)
+
+**দিশারী (Dishari)** একটি আধুনিক, নাগরিক-বান্ধব ও দালালমুক্ত ডিজিটাল প্ল্যাটফর্ম। গ্রামীণ ও কম প্রযুক্তিবান্ধব নাগরিকসহ বাংলাদেশের যে কোনো সাধারণ মানুষের জন্য সরকারি সেবা প্রাপ্তি সহজ ও স্বচ্ছ করতে এটি তৈরি করা হয়েছে।
+
+কম্পিউটারের দোকানে দীর্ঘ লাইনে দাঁড়িয়ে থাকা, অতিরিক্ত দালাল ফি দেওয়া কিংবা জটিল সরকারি ওয়েবসাইটের গোলকধাঁধা দূর করে **দিশারী** এক ক্লিকে প্রয়োজনীয় কাগজপত্র, অফিশিয়াল গেজেট ফি এবং সরাসরি আবেদন নির্দেশিকা হাতের মুঠোয় এনে দেয়।
+
+---
+
+## 🌟 Key Platform Features (মূল বৈচিত্র্য ও সুবিধাসমূহ)
+
+### 1. 🪪 স্মার্ট এনআইডি অপটিক্যাল স্ক্যানার ও অনবোর্ডিং (Smart NID Optical OCR v2.4)
+- **১-ক্লিক পাসওয়ার্ডহীন সাইন-ইন ও নিবন্ধন**: জাতীয় পরিচয়পত্রের ছবি আপলোড বা ক্যামেরা দিয়ে ক্যাপচার করলেই অ্যাকাউন্ট তৈরি সম্পন্ন হয়।
+- **দ্বিভাষিক ওসিআর বিশ্লেষণ**: বাংলা ও ইংরেজি অক্ষরের নাম, এনআইডি নম্বর, জন্ম তারিখ এবং রক্তের গ্রুপ স্বয়ংক্রিয়ভাবে শনাক্ত হয়।
+- **স্বয়ংক্রিয় লকার সংরক্ষণ**: স্ক্যান করা মূল এনআইডি স্বয়ংক্রিয়ভাবে নাগরিকের এনক্রিপ্টেড ডিজিটাল লকারে সংরক্ষিত হয়।
+- **১-ক্লিক ডেমো কার্ড টেস্ট**: কার্ড না থাকলেও তাত্ক্ষণিক জেনেরিক ডেমো ডেটা দিয়ে সিস্টেম পরীক্ষা করার সুযোগ।
+
+### 2. 🔐 বহুমুখী সমন্বিত প্রমাণীকরণ (Multi-Channel Unified Auth)
+- `/login` এবং `/register` উভয় পেজে ৪টি চ্যানেল সমর্থন করে:
+  1. **স্মার্ট এনআইডি স্ক্যান (NID Scan)**
+  2. **মোবাইল নম্বর (Phone / OTP)**
+  3. **ম্যানুয়াল NID নম্বর (Manual NID)**
+  4. **ইমেইল ও পাসওয়ার্ড (Email)**
+- **জিরো লেআউট জাম্প (Zero-Jump Stability)**: ট্যাব পরিবর্তনের সময় কার্ড লাফানো বন্ধ করতে নির্দিষ্ট ন্যূনতম উচ্চতা ও মসৃণ ফ্রেমার মোশন ট্রানজিশন সংযুক্ত।
+
+### 3. 🤖 জনবন্ধু AI — স্বয়ংক্রিয় ভয়েস ও আইনি সহকারী (Jonobondhu Civic Assistant)
+- **আঞ্চলিক উপভাষা ও কথ্য বাংলা নরমালাইজার**: ইউনিকোড অমিল ও বিভক্তি স্টেমার সহ ন্যাচারাল স্পিচ রিকগনিশন।
+- **ভয়েস কমান্ড অটো-নেভিগেশন**: মুখে বলুন *"এনআইডি তে নিয়ে যাও"*, *"পাসপোর্টে নিয়ে যাও"*, *"লকারে নিয়ে যাও"* — সাথে সাথে স্বয়ংক্রিয় ওয়ার্প এনিমেশন সহ সংশ্লিষ্ট পেজে পৌঁছে দেয়।
+- **গতিশীল সরকারি গেজেট প্রশ্নোত্তর ইঞ্জিন**: ৩০+ অফিশিয়াল সেবার সরকারি ফি, প্রয়োজনীয় চেকলিস্ট, আনুমানিক সময়সীমা ও আবেদনের ধাপসমূহ সরাসরি ডাটাবেজ থেকে নির্ভুলভাবে জানিয়ে দেয়।
+
+### 4. 📊 লাইভ নাগরিক টেলিমেট্রি কমান্ড ডেক (Civic Telemetry & Transparency Engine)
+- **৳০ দালাল ও বাড়তি খরচ (Anti-Broker Guarantee)**: প্রতিটি সেবার অফিশিয়াল সরকারি গেজেট ফি দৃশ্যমান (যেমন: নামজারি ৳১,১৭০, পাসপোর্ট ৳৪,০২৫)।
+- **< ২ সেকেন্ডে অটো-ডকেট প্রস্তুত**: স্ক্যান করা ফাইল থেকে স্বয়ংক্রিয় আবেদনপত্র ও কার্যপত্র তৈরির গতি।
+- **৬৪ জেলা ও ৪৯৫ উপজেলা কভারেজ**: দেশব্যাপী সকল গেজেট-যাচাইকৃত সেবার একক নেটওয়ার্ক।
+- **জাতীয় জরুরি ডায়াল ডেক**: ৩৩৩ (নাগরিক সেবা), ৯৯৯ (জরুরি), ১০৬ (দুদক দালাল প্রতিরোধ), ১৬১২২ (ভূমি), ১০৯ (নারী ও শিশু) এবং ১৬২৬৩ (স্বাস্থ্য বাতায়ন) সরাসরি কল সুবিধা।
+- **লাইভ গেজেট বুলেটিন স্ট্রিপ**: অফিশিয়াল সতর্কবার্তা ও সরকারি নীতিমালার রিয়েল-টাইম স্ক্রলিং স্ট্রিপ।
+
+### 5. 👤 পার্সোনালাইজড নাগরিক ফিড (Personalized Citizen Command Deck)
+- লগইন করা নাগরিকদের জন্য হোম পেজে আবহাওয়া বার্তার পরপরই স্বয়ংক্রিয়ভাবে সক্রিয় হয় পার্সোনালাইজড ফিড:
+  - **কমান্ড ডেক ও স্বাগতম কার্ড**: ডিজিটাল নাগরিক আইডি এবং প্রোফাইল স্ট্যাটাস।
+  - **আবেদন ট্র্যাকিং রাডার**: চলমান সরকারি আবেদনের রিয়েল-টাইম অগ্রগতি।
+  - **ডিজিটাল লকার রেডিনেস মিটার**: আবেদনের জন্য প্রয়োজনীয় কাগজপত্রের প্রস্তুতি স্কোর।
+  - **সুপারিশকৃত সেবা ও ডেডলাইন অ্যালার্ট**: আয়কর রিটার্ন ও উপবৃত্তির ক্যালেন্ডার কাউন্টডাউন।
+
+### 6. 🌾 আবহাওয়া ও গ্রামীণ কৃষি নাগরিক বার্তা (Weather & Agro Advisory)
+- বাংলাদেশের ৮টি বিভাগের জন্য রিয়েল-টাইম আবহাওয়া ও উপগ্রহ পূর্বাভাস।
+- ধান, রবি শস্য, সেচ ব্যবস্থাপনা ও প্রাকৃতিক দুর্যোগ মোকাবেলায় কৃষকদের জন্য বিশেষ কৃষি বুলেটিন।
+
+### 7. 📚 ৩০+ গেজেট-অনুমোদিত সরকারি সেবা নির্দেশিকা (Services Directory)
+- ই-পাসপোর্ট ও পাসপোর্ট নবায়ন
+- NID সংশোধন ও ভোটার তথ্য
+- BDRIS জন্ম ও মৃত্যু নিবন্ধন
+- ই-নামজারি (জমি খারিজ), খতিয়ান/পর্চা, ভূমি কর (খাজনা) ও মৌজা নকশা
+- ড্রাইভিং লাইসেন্স ও মোটরযান ফিটনেস
+- পুলিশ ক্লিয়ারেন্স সার্টিফিকেট (PCC)
+- ই-টিআইএন ও আয়কর রিটার্ন
+- ই-ট্রেড লাইসেন্স ও আরজেএসসি কোম্পানি নিবন্ধন
+- বিএমইটি প্রবাসী স্মার্ট কার্ড
+- বিধবা, বয়স্ক, প্রতিবন্ধী ও মাতৃত্বকালীন ভাতা
+- প্রধানমন্ত্রীর শিক্ষা সহায়তা ট্রাস্ট (PMEAT) উপবৃত্তি
+
+---
+
+## 🏗️ Repository Architecture (মনোরিপো কাঠামো)
 
 ```
 Dishari/
-├── Structure/          ← Project documentation (non-code)
-│   ├── statement.txt           Project problem statement & vision
-│   ├── info.txt                Feature descriptions & target users
-│   ├── todo.md                 Phase 1 build tasks with subtasks
-│   ├── ui-design-spec.md       UI design system & component specs
-│   ├── form-submission-architecture.md  Core bot-submission tech spec
-│   └── dishari-roadmap.md      Full project roadmap (all phases)
+├── web/                       ← Next.js 16.4.5 ফ্রন্টএন্ড ক্লায়েন্ট (Turbopack)
+│   ├── src/
+│   │   ├── app/               ← App Router (সকল ৪১টি স্ট্যাটিক ও এসএসজি রুট)
+│   │   │   ├── page.tsx       ← ডাইনামিক ল্যান্ডিং ও পার্সোনালাইজড ফিড
+│   │   │   ├── login/         ← অপটিক্যাল এনআইডি ও মাল্টি-চ্যানেল লগইন
+│   │   │   ├── register/      ← স্মার্ট এনআইডি ও মাল্টি-চ্যানেল নাগরিক নিবন্ধন
+│   │   │   ├── dashboard/     ← ডিজিটাল লকার, আবেদন ও ডেডলাইন রাডার
+│   │   │   └── services/      ← ৩০+ বিস্তারিত সরকারি সেবা ডিরেক্টরি
+│   │   ├── components/        ← রিইউজেবল উইন্ডোজ ১০ ও পেপার ইউআই কম্পোনেন্ট
+│   │   │   ├── home/          ← Hero, Telemetry, Weather, PersonalizedFeed
+│   │   │   ├── shared/        ← JonobondhuChat, DishariLogo, Navbar, Footer
+│   │   │   └── ui/            ← বাটন, ডায়ালগ, ইনপুট ও ব্যাজ
+│   │   └── lib/               ← এপিআই সংযোগ, এনএলপি ইঞ্জিন, মোশন ও অনুবাদ
+│   │       ├── civic-nlp.ts   ← উন্নত বাংলা স্পিচ নরমালাইজার ও নেভিগেশন ইঞ্জিন
+│   │       ├── default-services.ts ← ৩০টি সরকারি সেবার সম্পূর্ণ গেজেট ডাটাবেজ
+│   │       └── api.ts         ← ডকুমেন্টস, ওআইসিআর ও অথেনটিকেশন ব্রিজ
+│   └── public/                ← লোগো, আইকন ও স্ট্যাটিক মিডিয়া
 │
-└── web/                ← Next.js 14 web application
-    ├── src/
-    │   ├── app/        App Router pages
-    │   ├── components/ Reusable UI components
-    │   ├── lib/        Utilities, data, helpers
-    │   └── types/      TypeScript type definitions
-    └── ...
+├── server/                    ← Node.js / Express ব্যাকএন্ড ইঞ্জিন
+│   ├── src/                   ← অথেনটিকেশন, ফাইল ভল্ট ও এপিআই রাউট
+│   ├── ben.traineddata        ← টেসেরাক্ট বাংলা ওসিআর ডাটা
+│   ├── eng.traineddata        ← টেসেরাক্ট ইংরেজি ওসিআর ডাটা
+│   └── ...
+│
+├── tests/                     ← পাইথন স্বয়ংক্রিয় ভেরিফিকেশন ও কিউএ টেস্ট স্যুট
+│   ├── test_ai_navigation.py  ← জনবন্ধু ভয়েস ও রাউটিং টেস্ট
+│   ├── test_ocr_pipeline.py   ← ওআইসিআর ইমেজ প্রসেসিং টেস্ট
+│   ├── test_services_data.py  ← সরকারি সেবা গেজেট ফি ও ডাটা সত্যতা টেস্ট
+│   └── ...
+│
+├── Structure/                 ← সিস্টেম ডিজাইন ও রিকোয়ারমেন্টস ডকুমেন্টেশন
+│   ├── statement.txt          ← প্রজেক্টের ভিশন ও সমস্যা সমাধানের রূপরেখা
+│   └── ui-design-spec.md      ← নাগরিক ইন্টারফেস ও ডিজাইন স্পেসিফিকেশন
+│
+├── run_tests.py               ← স্বয়ংক্রিয় টেস্ট রানার স্ক্রিপ্ট
+└── package.json               ← pnpm ওয়ার্কস্পেস কনফিগারেশন
 ```
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 14 (App Router) |
-| Styling | Tailwind CSS + shadcn/ui |
-| Language | TypeScript |
-| Primary Language | Bangla (বাংলা) |
-| Font | Noto Sans Bengali + Plus Jakarta Sans |
-| Backend (Phase 2+) | Supabase (PostgreSQL + Auth + Storage) |
-| AI (Phase 5+) | Google Gemini API |
-| Bot/Automation (Phase 3+) | Playwright + BullMQ + Redis |
-
-## Getting Started
-
-```bash
-cd web
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
-
-## Key Features (Roadmap)
-
-- **Document Locker** — Save your NID, birth certificate, photo once; reuse forever
-- **Smart Auto-Fill** — We fill government forms on your behalf using saved documents
-- **জনবন্ধু AI** — Bangla-first AI assistant with voice input support
-- **Deadline Alerts** — Never miss a scholarship or tax return deadline
-- **Service Guides** — Step-by-step guides for 50+ government services
-
-## Documentation
-
-All planning documents are in the [`Structure/`](./Structure/) folder.
-Start with [`todo.md`](./Structure/todo.md) for the current build plan.
 
 ---
 
-*Built for Bangladesh. Built for everyone.*
+## 🛠️ Tech Stack (প্রযুক্তি রূপরেখা)
+
+| স্তর (Layer) | ব্যবহৃত প্রযুক্তি (Technology) | বিবরণ (Details) |
+|---|---|---|
+| **Frontend Framework** | **Next.js 16.4.5 (Turbopack)** | আল্ট্রা-ফাস্ট সার্ভার সাইড জেনারেশন ও এসএসজি |
+| **UI Library** | **React 19.3.0** | কনকারেন্ট রেন্ডারিং ও রিয়্যাক্ট হু্কস |
+| **Styling & Design** | **Tailwind CSS v4 + Motion** | উইন্ডোজ ১০ ফ্ল্যাট সিভিক ডিজাইন সিস্টেম ও স্প্রিং এনিমেশন |
+| **Icons & Typography** | **Lucide React + Noto Sans Bengali** | অপটিমাইজড বাংলা ও ইংরেজি ভেক্টর টাইপোগ্রাফি |
+| **Backend Engine** | **Express.js + TypeScript 5.7** | হাই-পারফরম্যান্স ব্যাকএন্ড এপিআই |
+| **OCR Pipeline** | **Tesseract.js v7 + Sharp** | দ্বিভাষিক (বাংলা + ইংরেজি) অপটিক্যাল স্ক্যানার |
+| **Database & Cache** | **PostgreSQL + LocalStorage Cache** | অফলাইন-ফার্স্ট সক্ষমতা সহ এনক্রিপ্টেড ক্যাশ |
+| **Testing & QA** | **Python 3 Unittest Suite** | ৩৪টি সমন্বিত ডাটা ও এনএলপি ভেরিফিকেশন টেস্ট |
+
+---
+
+## 🚀 Getting Started (রান ও ইনস্টলেশন)
+
+### পূর্বশর্ত (Prerequisites):
+- [Node.js](https://nodejs.org/) (v20+ বা v22 LTS রেকমেন্ডেড)
+- [pnpm](https://pnpm.io/) (`npm install -g pnpm`)
+- [Python 3](https://www.python.org/) (স্বয়ংক্রিয় টেস্ট ও ডায়াগনস্টিক চালানোর জন্য)
+
+### ১. ক্লোন ও ডিপেন্ডেন্সি ইনস্টল করুন:
+```bash
+git clone https://github.com/your-username/Dishari.git
+cd Dishari
+pnpm install
+```
+
+### ২. ডেভেলপমেন্ট সার্ভার চালু করুন:
+ওয়েব অ্যাপ এবং ব্যাকএন্ড ইঞ্জিন একসাথে চালু করতে:
+```bash
+pnpm dev
+```
+- **Web Portal**: [http://localhost:3000](http://localhost:3000)
+- **API Server**: [http://localhost:5000](http://localhost:5000)
+
+অথবা শুধুমাত্র ওয়েব ফ্রন্টএন্ড চালাতে:
+```bash
+pnpm dev:web
+```
+
+### ৩. প্রোডাকশন বিল্ড তৈরি করুন:
+```bash
+pnpm build
+```
+*(Next.js Turbopack বিল্ড সকল ৪১টি রুট স্বয়ংক্রিয়ভাবে কম্পাইল ও ভ্যালিডেট করবে)*
+
+---
+
+## 🧪 Automated Testing & QA (টেস্ট স্যুট)
+
+দিশারীর ডাটা সত্যতা, বাংলা এনএলপি ইঞ্জিন এবং ওসিআর পাইপলাইন যাচাই করতে রয়েছে ৩৪টি পাইথন টেস্ট:
+
+```bash
+# সরাসরি টেস্ট রানার চালান
+python run_tests.py
+
+# অথবা ডিটেইলড ভার্বোস মোডে
+python run_tests.py -v
+```
+
+**টেস্ট কাভারেজ:**
+- `test_ai_navigation.py`: জনবন্ধু AI ভয়েস ইনপুট (*"এনআইডি তে নিয়ে যাও"*, *"লকারে নিয়ে যাও"*, ইত্যাদি) এবং স্বয়ংক্রিয় নেভিগেশন যাচাই।
+- `test_bengali_utils.py`: বাংলা বর্ণমালা রূপান্তর ও ইউনিকোড অর্থোগ্রাফি নরমালাইজেশন।
+- `test_services_data.py`: ৩০টি সরকারি সেবার অফিশিয়াল গেজেট ফি ও চেকলিস্টের সত্যতা।
+- `test_ocr_pipeline.py`: স্মার্ট এনআইডি কার্ডের ফিল্ড এক্সট্র্যাকশন ও শার্প ফিল্টারিং।
+
+---
+
+## 🔒 Security & Privacy (নাগরিক ডাটার নিরাপত্তা)
+
+1. **কোনো ব্যক্তিগত তথ্য সংরক্ষিত নয়**: কোডবেসে সম্পূর্ণ জেনেরিক ও ডেমো নাগরিক প্লেসহোল্ডার ব্যবহৃত।
+2. **ক্লায়েন্ট ও ভল্ট এনক্রিপশন**: স্ক্যানকৃত নাগরিক নথি ও পরিচয়পত্রসমূহ ক্লায়েন্ট-সাইড থেকে এনক্রিপ্ট হয়ে সুরক্ষিত লকারে সংরক্ষিত হয়।
+3. **শতভাগ অফিশিয়াল ডাটা**: কোনো অনুমানভিত্তিক তথ্য নেই; প্রতিটি ফি সরকারি গেজেট ও আইনানুগ চার্টার অনুযায়ী সাজানো।
+
+---
+
+## 📄 License & Attribution
+
+*Built with ❤️ for Bangladesh. Dedicated to empowering every citizen with accessible, transparent, and hassle-free public services.*
