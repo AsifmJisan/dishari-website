@@ -29,8 +29,15 @@ SITEMAP_ROUTING = [
         "url": "/services/nid-correction",
         "title_bn": "NID সংশোধন",
         "title_en": "NID Correction",
-        "keywords_bn": ["nid", "জাতীয় পরিচয়পত্র", "পরিচয়পত্র", "nid সংশোধন", "সংশোধন"],
-        "keywords_en": ["nid", "national id", "nid correction", "voter id"],
+        "keywords_bn": ["nid", "এনআইডি", "জাতীয় পরিচয়পত্র", "পরিচয়পত্র", "nid সংশোধন", "এনআইডি সংশোধন", "স্মার্ট কার্ড", "ভোটার আইডি"],
+        "keywords_en": ["nid", "national id", "nid correction", "voter id", "smart card"],
+    },
+    {
+        "url": "/dashboard?tab=locker",
+        "title_bn": "ডকুমেন্ট লকার",
+        "title_en": "Document Locker",
+        "keywords_bn": ["লকার", "ডকুমেন্ট লকার", "কাগজপত্র"],
+        "keywords_en": ["locker", "document locker", "vault"],
     },
     {
         "url": "/services/birth-registration",
@@ -91,12 +98,22 @@ SITEMAP_ROUTING = [
 ]
 
 
+def normalize_bengali_test(text: str) -> str:
+    return (
+        text.replace("\u09af\u09bc", "\u09df")
+        .replace("নিয়ে", "নিয়ে")
+        .replace("এন আইডি", "এনআইডি")
+        .strip()
+        .lower()
+    )
+
+
 def resolve_nav_intent(query: str) -> Optional[Tuple[str, str, str]]:
     """
     Simulates the Jonobondhu AI intent resolver.
     The longest matching keyword wins (more specific phrase > generic word).
     """
-    clean_q = query.strip().lower()
+    clean_q = normalize_bengali_test(query)
     best_entry = None
     best_len = 0
 
@@ -104,16 +121,18 @@ def resolve_nav_intent(query: str) -> Optional[Tuple[str, str, str]]:
     nav_triggers = [
         "take me", "navigate", "go to", "where is", "where can i", "how do i", "how to get", "apply", "submit", "pay",
         "need", "urgently", "call", "find",
-        "নিয়ে চলুন", "যেতে চাই", "কীভাবে", "লাগবে", "করতে চাই", "তুলতে চাই", "দিতে চাই", "কথা বলব", "বের করতে হবে"
+        "নিয়ে চলুন", "নিয়ে যাও", "নিয়ে যাও", "নিয়ে যান", "নিয়ে যান", "নিয়ে চল", "নিয়ে চল",
+        "যেতে চাই", "কীভাবে", "কিভাবে", "লাগবে", "করতে চাই", "তুলতে চাই", "দিতে চাই", "কথা বলব", "বের করতে হবে"
     ]
-    has_trigger = any(t in clean_q for t in nav_triggers)
+    has_trigger = any(normalize_bengali_test(t) in clean_q for t in nav_triggers)
     if not has_trigger:
         return None
 
     for entry in SITEMAP_ROUTING:
         for kw in entry["keywords_bn"] + entry["keywords_en"]:
-            if kw.lower() in clean_q and len(kw) > best_len:
-                best_len = len(kw)
+            norm_kw = normalize_bengali_test(kw)
+            if norm_kw in clean_q and len(norm_kw) > best_len:
+                best_len = len(norm_kw)
                 best_entry = entry
 
     if best_entry and best_len > 0:
@@ -155,6 +174,9 @@ class TestJonobondhuAINavigation(unittest.TestCase):
         """Test user natural language queries in Bengali."""
         test_cases = [
             ("আমাকে পাসপোর্ট আবেদন পৃষ্ঠায় নিয়ে চলুন", "/services/passport"),
+            ("এনআইডি তে নিয়ে যাও", "/services/nid-correction"),
+            ("এনআইডিতে নিয়ে যাও", "/services/nid-correction"),
+            ("লকারে নিয়ে যাও", "/dashboard?tab=locker"),
             ("পাসপোর্ট নবায়ন করতে চাই", "/services/passport-renewal"),
             ("জাতীয় পরিচয়পত্র সংশোধন করতে চাই", "/services/nid-correction"),
             ("ড্রাইভিং লাইসেন্স কীভাবে পাব", "/services/driving-license"),
