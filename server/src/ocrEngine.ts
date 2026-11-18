@@ -1,5 +1,22 @@
+import fs from 'fs'
+import path from 'path'
 import sharp from 'sharp'
 import Tesseract from 'tesseract.js'
+
+function findLocalTessDataDir(): string {
+  const candidates = [
+    typeof __dirname !== 'undefined' ? path.resolve(__dirname, '..') : '',
+    typeof __dirname !== 'undefined' ? path.resolve(__dirname, '../..') : '',
+    path.resolve(process.cwd(), 'server'),
+    path.resolve(process.cwd()),
+  ].filter(Boolean)
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, 'eng.traineddata'))) {
+      return dir
+    }
+  }
+  return '.'
+}
 
 export interface ParsedDocumentData {
   doc_title?: string
@@ -142,17 +159,29 @@ export function parseDocumentText(rawText: string, preferredDocType?: string): P
 
   // 3. Educational Transcripts / Admit Card (Roll, Reg, Board, Exam)
   if (preferredDocType !== 'birth_certificate' && !lowerText.includes('birth registration')) {
-    const rollMatch = normalizedText.match(/(?:[RP]oll|[RP]ol|রোল)\s*(?:No|Number|Noc|নং)?[:\s.\-c=]+([0-9]{4,8})/i)
+    const rollMatch = normalizedText.match(/(?:[RP]oll|[RP]ol|রোল)\s*(?:No\.?|Number|Noc|নং)?[:\s.\-c=\|]+([0-9]{4,8})/i)
     if (rollMatch) {
       result.roll = rollMatch[1]
     } else if (preferredDocType === 'educational_transcript') {
-      const standalone6Digit = normalizedText.match(/\b\d{6}\b/)
-      if (standalone6Digit) result.roll = standalone6Digit[0]
+      const lines = normalizedText.split('\n')
+      for (const line of lines) {
+        const l = line.toLowerCase()
+        if (!l.includes('institute') && !l.includes('college') && !l.includes('centre') && !l.includes('code') && !l.includes('serial')) {
+          const standalone6Digit = line.match(/\b\d{6}\b/)
+          if (standalone6Digit) {
+            result.roll = standalone6Digit[0]
+            break
+          }
+        }
+      }
     }
 
-    const regMatch = normalizedText.match(/(?<!Birth\s*)(?:[RP]eg(?:istration)?\.?\s*(?:No|Number)?|রেজি(?:স্ট্রেশন)?\s*(?:নং)?)[:\s.\-c=]+([0-9]{6,12})/i)
+    const regMatch = normalizedText.match(/(?<!Birth\s*)(?:[RP]eg(?:istration)?\.?\s*(?:No\.?|Number)?|রেজি(?:স্ট্রেশন)?\s*(?:নং)?)[:\s.\-c=\|]+([0-9]{6,12})/i)
     if (regMatch) {
       result.reg_no = regMatch[1]
+    } else if (preferredDocType === 'educational_transcript') {
+      const standalone10Digit = normalizedText.match(/\b\d{10}\b/)
+      if (standalone10Digit) result.reg_no = standalone10Digit[0]
     }
   }
 
@@ -435,43 +464,78 @@ export async function runJavaScriptOCR(
   docType?: string
 ): Promise<{ success: boolean; document: ParsedDocumentData; rawText: string; error?: string }> {
   try {
-    let processedBuffer = imageBuffer
+    const tessDir = findLocalTessDataDir()
+    let recognizedText = ''
+    let confidence = 0
 
-    // Preprocessing pipeline: upscaling low-res images & normalizing contrast
-    try {
-      const metadata = await sharp(imageBuffer).metadata()
-      const width = metadata.width || 0
-      const height = metadata.height || 0
+    const metadata = await sharp(imageBuffer).metadata().catch(() => null)
+    const isColored = metadata && metadata.channels && metadata.channels >= 3
 
-      let sharpPipeline = sharp(imageBuffer)
-      if (width > 0 && width < 1200) {
-        // Upscale up to 3x to reach ~1400px width for sharp text rendering
-        const scale = Math.max(1.5, Math.min(3, 1400 / width))
-        sharpPipeline = sharpPipeline.resize(Math.round(width * scale), Math.round(height * scale), {
-          kernel: 'lanczos3',
+    // Strategy 1: For colored watermarked documents (such as Bangladeshi admit cards with pink/red Guilloche borders),
+    // extracting the green channel effectively strips red/pink ink into white background and makes dark text stand out!
+    if (docType === 'educational_transcript' || isColored) {
+      try {
+        const width = metadata?.width || 1000
+        const scale = Math.max(1.8, Math.min(3, 2400 / width))
+        const greenBuffer = await sharp(imageBuffer)
+          .extractChannel('green')
+          .resize(Math.round(width * scale))
+          .linear(1.5, -30)
+          .toBuffer()
+
+        const worker = await Tesseract.createWorker(['eng', 'ben'], 1, {
+          langPath: tessDir,
+          gzip: false,
+          logger: () => {},
         })
+        const greenRes = await worker.recognize(greenBuffer)
+        await worker.terminate()
+
+        if (greenRes.data.text && greenRes.data.text.trim().length > 30) {
+          recognizedText = greenRes.data.text
+          confidence = greenRes.data.confidence
+        }
+      } catch (greenErr) {
+        console.warn('Green channel OCR attempt skipped:', greenErr)
       }
-      processedBuffer = await sharpPipeline.grayscale().normalize().toBuffer()
-    } catch (sharpErr) {
-      console.warn('Sharp image preprocessing skipped:', sharpErr)
-      processedBuffer = imageBuffer
     }
 
-    // Run bilingual (Bengali + English) OCR
-    let ocrResult
-    try {
-      ocrResult = await Tesseract.recognize(processedBuffer, 'ben+eng', {
-        logger: () => {},
-      })
-    } catch (benErr) {
-      console.warn('ben+eng OCR failed, falling back to eng:', benErr)
-      ocrResult = await Tesseract.recognize(processedBuffer, 'eng', {
-        logger: () => {},
-      })
-    }
+    // Strategy 2: If green channel wasn't used or yielded insufficient text, use standard grayscale/normalize
+    if (!recognizedText || recognizedText.trim().length < 30) {
+      let processedBuffer = imageBuffer
+      try {
+        const width = metadata?.width || 0
+        const height = metadata?.height || 0
+        let sharpPipeline = sharp(imageBuffer)
+        if (width > 0 && width < 1200) {
+          const scale = Math.max(1.5, Math.min(3, 1400 / width))
+          sharpPipeline = sharpPipeline.resize(Math.round(width * scale), Math.round(height * scale), {
+            kernel: 'lanczos3',
+          })
+        }
+        processedBuffer = await sharpPipeline.grayscale().normalize().toBuffer()
+      } catch (sharpErr) {
+        console.warn('Sharp image preprocessing skipped:', sharpErr)
+        processedBuffer = imageBuffer
+      }
 
-    const recognizedText = ocrResult?.data?.text || ''
-    const confidence = ocrResult?.data?.confidence || 0
+      try {
+        const worker = await Tesseract.createWorker(['eng', 'ben'], 1, {
+          langPath: tessDir,
+          gzip: false,
+          logger: () => {},
+        })
+        const stdRes = await worker.recognize(processedBuffer)
+        await worker.terminate()
+
+        if ((stdRes.data.text || '').length > recognizedText.length) {
+          recognizedText = stdRes.data.text
+          confidence = stdRes.data.confidence
+        }
+      } catch (stdErr) {
+        console.warn('Standard OCR attempt failed:', stdErr)
+      }
+    }
 
     // Parse the actual text read from the image
     const parsed = parseDocumentText(recognizedText, docType)

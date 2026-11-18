@@ -978,6 +978,26 @@ export function generateJonobondhuResponse(
     }
   }
 
+  // HSC / SSC / Exam Results Guidance
+  if (
+    norm.includes('hsc') ||
+    norm.includes('ssc') ||
+    norm.includes('রেজাল্ট') ||
+    norm.includes('ফলাফল') ||
+    norm.includes('এডমিট') ||
+    norm.includes('প্রবেশপত্র') ||
+    norm.includes('মার্কশিট') ||
+    norm.includes('পরীক্ষা') ||
+    norm.includes('result') ||
+    norm.includes('grade')
+  ) {
+    return {
+      reply: isBn
+        ? 'আমি সরাসরি শিক্ষা বোর্ডের অফিশিয়াল সার্ভার থেকে আপনার পরীক্ষার ফলাফল এনে দিতে পারি! 🎓\n\nসবচেয়ে সহজ উপায়: নিচে 📎 ছবি আইকনে ক্লিক করে আপনার প্রবেশপত্রের (Admit Card) ছবি দিন—আমাদের AI রোল ও রেজিস্ট্রেশন স্বয়ংক্রিয়ভাবে শনাক্ত করবে।\n\nঅথবা রোল নম্বর, রেজিস্ট্রেশন নম্বর ও বোর্ডের নাম লিখে আমাকে পাঠান।'
+        : 'I can fetch your official Board Examination results directly! 🎓\n\nEasiest way: Click the 📎 image icon below to upload a photo of your admit card — our AI will auto-detect your Roll & Registration.\n\nAlternatively, send your Roll, Registration number, and Board name.',
+    }
+  }
+
   if (
     norm.includes('ট্রেড') ||
     norm.includes('trade') ||
@@ -1048,8 +1068,8 @@ export function generateJonobondhuResponse(
   ) {
     return {
       reply: isBn
-        ? 'আলহামদুলিল্লাহ, ভালো আছি! আমি জনবন্ধু — আপনার সরকারি সেবা সহকারী। পাসপোর্ট, NID সংশোধন, জন্ম নিবন্ধন, জমির নামজারি বা যেকোনো ভাতা সম্পর্কে আমাকে মুখে বলুন বা প্রশ্ন করুন।'
-        : 'Hello! I am Jonobondhu, your AI civic assistant. Feel free to speak or ask anything about Passports, NID, land records, or welfare allowances.'
+        ? 'ওয়ালাইকুম আসসালাম ও শুভেচ্ছা! 🌸 আমি ভালো আছি। আমি জনবন্ধু — দিশারীতে আপনার সার্বক্ষণিক নাগরিক ডিজিটাল বন্ধু। পাসপোর্ট, NID সংশোধন, জন্ম নিবন্ধন, জমির নামজারি বা পরীক্ষার ফলাফল সম্পর্কে যেকোনো তথ্য জানতে আমাকে বলতে পারেন।'
+        : 'Assalamu Alaikum & Warm Greetings! 🌸 I am doing well. I am Jonobondhu, your AI civic assistant on Dishari. Ask me anything about Passports, NID, birth registration, land records, or exam results.'
     }
   }
 

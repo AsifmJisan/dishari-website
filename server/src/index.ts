@@ -4,6 +4,7 @@ import dotenv from 'dotenv'
 import { pool } from './db.js'
 import { initDatabase } from './schema.js'
 import { runJavaScriptOCR, parseDocumentText } from './ocrEngine.js'
+import { parseAdmitCardFields, initResultSession, fetchResultWithCaptcha, parseResultHtml } from './resultFetcher.js'
 
 dotenv.config()
 
@@ -527,6 +528,302 @@ app.get('/api/deadlines', (req, res) => {
       official_link: 'https://etradelicense.gov.bd'
     }
   ])
+})
+
+// ─── RESULT FETCHER ENDPOINTS ──────────────────────────────────────────────
+
+// Step 1: Scan admit card image → extract fields, start session, return CAPTCHA
+app.post('/api/result/scan-admit-card', async (req, res) => {
+  try {
+    const imageBase64 = req.body.imageBase64 || req.body.image
+    if (!imageBase64) {
+      return res.status(400).json({ error: 'Missing imageBase64 in request body' })
+    }
+
+    // Clean base64 string
+    let cleanBase64 = imageBase64
+    let detectedMime = 'image/jpeg'
+    if (imageBase64.includes(';base64,')) {
+      const parts = imageBase64.split(';base64,')
+      detectedMime = parts[0].replace('data:', '') || detectedMime
+      cleanBase64 = parts[1]
+    }
+
+    // OCR pipeline: try Gemini first, fallback to Tesseract
+    let ocrResult: any = null
+    const geminiKey = process.env.GEMINI_API_KEY
+    if (geminiKey) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`
+        const promptText = `Extract all text from this student admit card / educational document. Return ONLY valid JSON (no markdown) with any fields you find:
+{
+  "roll": "roll number",
+  "reg_no": "registration number",
+  "board": "education board name",
+  "exam_name": "HSC or SSC or exam type",
+  "exam_year": "year of exam",
+  "group": "Science or Humanities or Commerce",
+  "raw_text": "all extracted text"
+}`
+        const geminiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: promptText },
+                { inline_data: { mime_type: detectedMime, data: cleanBase64 } },
+              ],
+            }],
+          }),
+        })
+        if (geminiRes.ok) {
+          const geminiData = (await geminiRes.json()) as any
+          const parts = geminiData.candidates?.[0]?.content?.parts || []
+          const text = parts.map((p: any) => p.text || '').join('\n')
+          if (text) {
+            const match = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+            let jsonText = match ? match[1].trim() : text
+            const start = jsonText.indexOf('{')
+            const end = jsonText.lastIndexOf('}')
+            if (start !== -1 && end !== -1) {
+              jsonText = jsonText.substring(start, end + 1)
+              const parsed = JSON.parse(jsonText)
+              // Map exam_year into raw_text if present
+              if (parsed.exam_year && !parsed.raw_text?.includes(parsed.exam_year)) {
+                parsed.raw_text = (parsed.raw_text || '') + ' ' + parsed.exam_year
+              }
+              ocrResult = parsed
+            }
+          }
+        }
+      } catch (geminiErr) {
+        console.warn('Gemini OCR failed for admit card scan, falling back:', geminiErr)
+      }
+    }
+
+    // Fallback: Tesseract OCR
+    if (!ocrResult) {
+      const imageBuffer = Buffer.from(cleanBase64, 'base64')
+      const jsOcr = await runJavaScriptOCR(imageBuffer, 'educational_transcript')
+      ocrResult = jsOcr.document
+    }
+
+    // Parse admit card fields
+    const scanResult = parseAdmitCardFields(ocrResult)
+
+    // If we have roll + registration, initialize a session and fetch CAPTCHA
+    const hasRequiredFields = !scanResult.missing.includes('roll') && !scanResult.missing.includes('registration')
+    if (hasRequiredFields) {
+      try {
+        const sessionData = await initResultSession(scanResult.found)
+        return res.json({
+          scanResult,
+          sessionId: sessionData.sessionId,
+          captchaImage: sessionData.captchaImage,
+          confirmedFields: sessionData.confirmedFields,
+          readyToFetch: true,
+        })
+      } catch (sessionErr: any) {
+        console.warn('Session init failed after scan:', sessionErr?.message)
+        // Return scan result even if session init fails (site may be down)
+        return res.json({
+          scanResult,
+          readyToFetch: false,
+          sessionError: sessionErr?.message || 'Could not connect to result server',
+        })
+      }
+    }
+
+    // Missing fields — frontend will prompt user to fill them manually
+    return res.json({
+      scanResult,
+      readyToFetch: false,
+    })
+  } catch (error: any) {
+    console.error('Error in scan-admit-card:', error)
+    res.status(500).json({ error: error?.message || 'Admit card scan failed' })
+  }
+})
+
+// Step 2: Init session with complete fields (called after user fills missing fields manually)
+app.post('/api/result/hsc/init', async (req, res) => {
+  try {
+    const { roll, registration, examYear, board, examType, group } = req.body
+    if (!roll || !registration) {
+      return res.status(400).json({ error: 'roll and registration are required' })
+    }
+
+    const fields = { roll, registration, examYear, board, examType, group }
+    const sessionData = await initResultSession(fields)
+
+    return res.json({
+      success: true,
+      sessionId: sessionData.sessionId,
+      captchaImage: sessionData.captchaImage,
+      confirmedFields: sessionData.confirmedFields,
+    })
+  } catch (error: any) {
+    console.error('Error in /api/result/hsc/init:', error)
+    res.status(502).json({ error: error?.message || 'Failed to initialize result session' })
+  }
+})
+
+// Step 3: Fetch result with captcha answer
+app.post('/api/result/hsc/fetch', async (req, res) => {
+  try {
+    const { sessionId, captchaAnswer, roll, registration, board, examYear, examType } = req.body
+    if (!sessionId || !captchaAnswer) {
+      return res.status(400).json({ error: 'sessionId and captchaAnswer are required' })
+    }
+
+    const overrides: any = {}
+    if (roll) overrides.roll = String(roll).trim()
+    if (registration) overrides.registration = String(registration).trim()
+    if (board) overrides.board = String(board).trim()
+    if (examYear) overrides.examYear = String(examYear).trim()
+    if (examType) overrides.examType = String(examType).trim()
+
+    const resultData = await fetchResultWithCaptcha(sessionId, captchaAnswer, overrides)
+    return res.json({ success: true, result: resultData })
+  } catch (error: any) {
+    console.error('Error in /api/result/hsc/fetch:', error)
+    res.status(500).json({ error: error?.message || 'Failed to fetch result' })
+  }
+})
+
+// Step 4: Parse copied result sheet text or HTML table
+app.post('/api/result/parse-sheet', (req, res) => {
+  try {
+    const { content, fields } = req.body
+    if (!content) {
+      return res.status(400).json({ error: 'content is required' })
+    }
+    const result = parseResultHtml(content, fields || {})
+    return res.json({ success: true, result })
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || 'Failed to parse result sheet' })
+  }
+})
+
+// ─── JONOBONDHU REAL AI CHAT ENDPOINT ───────────────────────────────────────
+app.post('/api/chat/jonobondhu', async (req, res) => {
+  try {
+    const { message, lang } = req.body
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'message string is required' })
+    }
+
+    const isBn = lang === 'bn' || !/[a-zA-Z]{4,}/.test(message)
+    const prompt = message.trim()
+
+    // 1. Check if Gemini API key is configured in env
+    const geminiKey = process.env.GEMINI_API_KEY
+    if (geminiKey) {
+      try {
+        const systemPrompt = `You are Jonobondhu (জনবন্ধু), an empathetic, expert civic AI assistant for "Dishari (দিশারী) - Bangladesh Citizen Service Platform".
+Your role is to guide Bangladeshi citizens through government services (NID corrections, e-Passport applications, Birth registration/BDRIS, HSC/SSC exam results, Driving licenses, Trade licenses, Citizen Locker, and civic deadlines).
+Tone: Warm, highly knowledgeable, polite, respectful, and reassuring.
+Language: Answer in ${isBn ? 'fluent, natural Bengali (বাংলা)' : 'clear, concise English'}.
+Rules:
+- Provide clear, actionable bullet points.
+- If asked about HSC or exam results, explain that Dishari has an automatic admit card scanner where they can upload their admit card image to auto-detect Roll and Reg numbers and fetch results.
+- Mention official portals: educationboardresults.gov.bd, services.nidw.gov.bd, epassport.gov.bd, bdris.gov.bd.
+- Dishari's Citizen Locker safely stores digital certificates.`
+
+        const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              { role: 'user', parts: [{ text: `${systemPrompt}\n\nCitizen message: ${prompt}` }] }
+            ]
+          })
+        })
+
+        if (gRes.ok) {
+          const gData = await gRes.json() as any
+          const reply = gData.candidates?.[0]?.content?.parts?.[0]?.text
+          if (reply) {
+            return res.json({ reply: reply.trim() })
+          }
+        }
+      } catch (gErr) {
+        console.warn('Gemini chat error, falling back to smart local intelligence:', gErr)
+      }
+    }
+
+    // 2. Intelligent Grounded Conversational Response Engine
+    const lower = prompt.toLowerCase()
+    let reply = ''
+    let navCard: any = null
+
+    if (/hsc|ssc|result|admit|রেজাল্ট|ফলাফল|এডমিট|রোল|মার্কশিট/i.test(lower)) {
+      reply = isBn
+        ? 'আমি আপনার পরীক্ষার ফলাফল সংগ্রহে সম্পূর্ণ সহায়তা করতে পারি। আপনি চ্যাটের নিচ থেকে 📎 বোতাম চেপে আপনার এইচএসসি/এসএসসি অ্যাডমিট কার্ডের ছবি আপলোড করুন—দিশারীর অপটিক্যাল ক্যারেক্টার রিকগনিশন (OCR) স্বয়ংক্রিয়ভাবে রোল, রেজিস্ট্রেশন নম্বর এবং শিক্ষাবোর্ড শনাক্ত করে ফলাফল নিয়ে আসবে।'
+        : 'I can help you fetch your examination results seamlessly! Simply click the 📎 attach button below and upload your HSC/SSC admit card. Dishari AI will extract your Roll, Registration, and Board to retrieve your marksheet.'
+      navCard = {
+        titleBn: 'এইচএসসি ফলাফল অনুসন্ধান ও লকার',
+        titleEn: 'HSC Results & Locker',
+        url: '/jonobondhu',
+        breadcrumbBn: 'শিক্ষা > ফলাফল',
+        breadcrumbEn: 'Education > Results'
+      }
+    } else if (/nid|এনআইডি|ভোটার|জাতীয় পরিচয়/i.test(lower)) {
+      reply = isBn
+        ? 'এনআইডি সংশোধন বা নতুন ভোটার নিবন্ধনের জন্য নির্বাচন কমিশনের পোর্টাল (services.nidw.gov.bd) প্রযোজ্য। দিশারীর মাধ্যমে আপনার অনলাইন আবেদন ডকেট তৈরি করতে পারেন এবং জন্মনিবন্ধন বা শিক্ষাগত সনদপত্র লকারে সংরক্ষণ করে দ্রুত আপলোড করতে পারেন।'
+        : 'For NID corrections or new voter registration, you can use the Election Commission portal (services.nidw.gov.bd). Dishari assists by assembling your document docket with 1-click filing.'
+      navCard = {
+        titleBn: 'স্মার্ট এনআইডি সেবা',
+        titleEn: 'Smart NID Services',
+        url: '/services/nid-correction',
+        breadcrumbBn: 'নাগরিক সেবা > এনআইডি',
+        breadcrumbEn: 'Civil Services > NID'
+      }
+    } else if (/passport|পাসপোর্ট|ই-পাসপোর্ট/i.test(lower)) {
+      reply = isBn
+        ? 'ই-পাসপোর্টের জন্য epassport.gov.bd-তে আবেদন করতে হয়। সাধারণ পাসপোর্ট (৪৮ পৃষ্ঠা, ৫ বছর) ফি ৪,০২৫ টাকা এবং জরুরি ফি ৬,৩২৫ টাকা। প্রয়োজনীয় ডকুমেন্টস: এনআইডি/জন্মনিবন্ধন, পূর্বের পাসপোর্ট (থাকলে) এবং পেশাগত প্রমাণপত্র।'
+        : 'For e-Passport, apply at epassport.gov.bd. Regular 48-page 5-year fee is BDT 4,025 and express is BDT 6,325. Requirements: NID/Birth certificate, old passport (if renewing), and occupation certificate.'
+      navCard = {
+        titleBn: 'ই-পাসপোর্ট ডকেট ও আবেদন সহায়িকা',
+        titleEn: 'e-Passport Docket & Guide',
+        url: '/services/e-passport',
+        breadcrumbBn: 'পাসপোর্ট ও ভিসা > ই-পাসপোর্ট',
+        breadcrumbEn: 'Passport & Visa > e-Passport'
+      }
+    } else if (/birth|জন্মনিবন্ধন|bdris|জন্ম সনদ/i.test(lower)) {
+      reply = isBn
+        ? 'জন্মনিবন্ধনের নতুন আবেদন বা ইংরেজি সংস্করণের জন্য BDRIS পোর্টালে (bdris.gov.bd) আবেদন করা যায়। হাসপাতালে জন্মের প্রত্যয়নপত্র, ইপিআই টিকা কার্ড ও পিতা-মাতার এনআইডি প্রয়োজন হয়।'
+        : 'For birth registration, visit bdris.gov.bd. You will need hospital birth certificate, immunization card, and parents\' NID copies.'
+      navCard = {
+        titleBn: 'জন্ম ও মৃত্যু নিবন্ধন সহায়িকা',
+        titleEn: 'Birth & Death Registration Guide',
+        url: '/services/birth-registration',
+        breadcrumbBn: 'নিবন্ধন > জন্মনিবন্ধন',
+        breadcrumbEn: 'Registration > Birth'
+      }
+    } else if (/locker|লকার|ডকুমেন্ট|সংরক্ষণ/i.test(lower)) {
+      reply = isBn
+        ? 'দিশারী সিটিজেন লকারে আপনার এনআইডি, জন্ম সনদ, টিন সার্টিফিকেট এবং শিক্ষাগত মার্কশিট সম্পূর্ণ এনক্রিপ্টেড অবস্থায় সুরক্ষিত থাকে। যে কোনো সরকারি ফরম পূরণের সময় আপনি ১-ক্লিকে এগুলো স্বয়ংক্রিয়ভাবে সংযুক্ত করতে পারেন।'
+        : 'Dishari Citizen Locker securely encrypts and stores your NID, Birth Certificate, TIN, and Marksheets. You can attach them to government application dockets with a single click.'
+      navCard = {
+        titleBn: 'নাগরিক ডকুমেন্ট লকার',
+        titleEn: 'Citizen Document Locker',
+        url: '/locker',
+        breadcrumbBn: 'ড্যাশবোর্ড > লকার',
+        breadcrumbEn: 'Dashboard > Locker'
+      }
+    } else {
+      reply = isBn
+        ? `আমি জনবন্ধু, আপনার নাগরিক ডিজিটাল বন্ধু। সরকারি সেবা, ফরম পূরণ, পাসপোর্ট, এনআইডি, জন্মনিবন্ধন কিংবা শিক্ষাবোর্ডের ফলাফল যাচাই—যেকোনো বিষয়ে আপনি আমাকে প্রশ্ন করতে পারেন বা আপনার ডকুমেন্ট আপলোড করতে পারেন।`
+        : `I am Jonobondhu, your civic digital assistant. Ask me anything about government services, e-Passports, NID, birth registration, exam result fetching, or upload your document to get started.`
+    }
+
+    return res.json({ reply, navCard })
+  } catch (chatErr: any) {
+    console.error('Error in /api/chat/jonobondhu:', chatErr)
+    res.status(500).json({ error: chatErr.message || 'Chat service error' })
+  }
 })
 
 async function startServer() {

@@ -71,6 +71,8 @@ export default function Navbar() {
   const isAboutActive = pathname === '/about'
   const isDashboardActive = pathname.startsWith('/dashboard')
 
+  if (pathname === '/jonobondhu') return null
+
   return (
     <>
       {/* ── Windows 10 Top National Green Accent Strip ─────────────────────── */}

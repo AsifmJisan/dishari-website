@@ -1,12 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { DishariLogo } from '@/components/shared/DishariLogo'
 import { useLanguage } from '@/lib/language-context'
 import { t } from '@/lib/translations'
 
 export default function Footer() {
+  const pathname = usePathname()
   const { lang } = useLanguage()
+
+  if (pathname === '/jonobondhu') return null
 
   return (
     <footer className="bg-[#004D38] text-white relative">

@@ -13,6 +13,8 @@ export default function MobileNav() {
   const searchParams = useSearchParams()
   const { lang } = useLanguage()
 
+  if (pathname === '/jonobondhu') return null
+
   const currentTab = searchParams.get('tab')
 
   const tabs = [

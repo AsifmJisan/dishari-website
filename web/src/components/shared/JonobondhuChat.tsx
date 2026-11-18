@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import {
   X,
   Send,
@@ -21,6 +21,9 @@ import {
   CheckCircle2,
   Zap,
   Move,
+  Maximize2,
+  ImagePlus,
+  Loader2,
 } from 'lucide-react'
 import { useLanguage } from '@/lib/language-context'
 import { WIN10_EASE_ENTRANCE } from '@/lib/motion'
@@ -29,13 +32,90 @@ import {
   type NavCard,
 } from '@/lib/civic-nlp'
 import { JonobondhuMascot } from './JonobondhuMascot'
+import {
+  loadChatSession,
+  saveChatSession,
+  type StoredMessage,
+  type AdmitCardFields,
+  type HscResultData,
+  type FieldFormPayload,
+  type CaptchaCardPayload,
+  type ResultCardPayload,
+} from '@/lib/chat-session'
+import { FieldCollectionForm } from '@/components/chat/FieldCollectionForm'
+import { CaptchaCard } from '@/components/chat/CaptchaCard'
+import { ResultCard } from '@/components/chat/ResultCard'
 
-interface Message {
-  id: string
-  sender: 'ai' | 'user'
-  text: string
-  time: string
-  navCard?: NavCard
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+
+export const GREETING_TEXT_BN = `আসসালামু আলাইকুম ও আন্তরিক শুভেচ্ছা! 🌸
+দিশারীতে আপনাকে স্বাগতম। আমি জনবন্ধু — আপনার সার্বক্ষণিক নাগরিক ডিজিটাল সহকারী।
+
+পাসপোর্ট, জাতীয় পরিচয়পত্র (NID) সংশোধন, জন্ম নিবন্ধন, জমির খতিয়ান বা ই-পর্চা যাচাই এবং শিক্ষা বোর্ডের পরীক্ষার ফলাফল সংক্রান্ত যে কোনো সরকারি সেবায় আমি সরাসরি সহায়তা করি।
+
+যেকোনো প্রশ্ন করতে পারেন, বাংলায় কথা বলতে পারেন, কিংবা প্রবেশপত্রের ছবি আপলোড করলেই ফলাফল দেখতে পারবেন।
+
+আজ আপনাকে কীভাবে সাহায্য করতে পারি?`
+
+export const GREETING_TEXT_EN = `Assalamu Alaikum & Warm Welcome! 🌸
+Welcome to Dishari. I am Jonobondhu — your dedicated citizen service companion and assistant.
+
+I can guide you through citizen services: E-Passport applications, NID corrections, Birth Registrations, Land Records (Khotian/Mutation), and Board Exam Results.
+
+Feel free to ask any question, speak naturally, or upload an admit card photo to retrieve your official result instantly.
+
+How may I assist you today?`
+
+export const CIVIC_STARTER_CHIPS = [
+  {
+    icon: '🎓',
+    labelBn: 'এইচএসসি রেজাল্ট দেখুন',
+    labelEn: 'Check HSC Result',
+    subBn: 'প্রবেশপত্র স্ক্যান বা রোল-রেজি দিয়ে খুঁজুন',
+    subEn: 'Scan admit card or enter roll & reg',
+    promptBn: 'এইচএসসি পরীক্ষার ফলাফল অনুসন্ধান করতে চাই',
+    promptEn: 'I want to check my HSC exam result',
+  },
+  {
+    icon: '🪪',
+    labelBn: 'এনআইডি সংশোধন',
+    labelEn: 'NID Correction',
+    subBn: 'নাম, জন্মতারিখ বা ঠিকানা পরিবর্তন',
+    subEn: 'Change name, birth date or address',
+    promptBn: 'জাতীয় পরিচয়পত্র (NID) সংশোধনের নিয়ম কী?',
+    promptEn: 'What is the procedure for NID correction?',
+  },
+  {
+    icon: '✈️',
+    labelBn: 'ই-পাসপোর্ট আবেদন',
+    labelEn: 'E-Passport Guide',
+    subBn: 'প্রয়োজনীয় কাগজ, সরকারি ফি ও ধাপ',
+    subEn: 'Documents, official fee & steps',
+    promptBn: 'ই-পাসপোর্টের প্রয়োজনীয় কাগজ ও সরকারি ফি কত?',
+    promptEn: 'What are the required documents and fee for E-Passport?',
+  },
+  {
+    icon: '📜',
+    labelBn: 'জন্ম নিবন্ধন যাচাই',
+    labelEn: 'Birth Registration',
+    subBn: 'BDRIS অনলাইন রেকর্ড ভেরিফিকেশন',
+    subEn: 'BDRIS online record verification',
+    promptBn: 'অনলাইনে জন্ম নিবন্ধন যাচাই কীভাবে করব?',
+    promptEn: 'How to verify birth registration online?',
+  },
+  {
+    icon: '📂',
+    labelBn: 'নাগরিক লকার',
+    labelEn: 'Citizen Locker',
+    subBn: 'জরুরি সরকারি সনদ সুরক্ষিত রাখুন',
+    subEn: 'Safely store official certificates',
+    promptBn: 'আমার নাগরিক ডকুমেন্ট লকার দেখান',
+    promptEn: 'Show me my citizen document locker',
+  },
+]
+
+interface Message extends StoredMessage {
+  expandToFullPage?: { url: string; promptBn: string; promptEn: string }
 }
 
 export function JonobondhuChat() {
@@ -48,6 +128,7 @@ export function JonobondhuChat() {
   const { lang } = useLanguage()
   const isBn = lang === 'bn'
   const router = useRouter()
+  const pathname = usePathname()
 
   const [isOpen, setIsOpen] = useState(false)
 
@@ -78,8 +159,10 @@ export function JonobondhuChat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isListening, setIsListening] = useState(false)
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Mascot DOM Ref
   const mascotRef = useRef<HTMLDivElement>(null)
@@ -113,11 +196,11 @@ export function JonobondhuChat() {
     phase: 'locking' | 'warping' | 'arrived'
   } | null>(null)
 
-  // Dimensions (compact 125x161 matching the 1045x1348 aspect ratio)
+  // Dimensions (optimized for spacious, comfortable civic reading)
   const MASCOT_WIDTH = 125
   const MASCOT_HEIGHT = 161
-  const WINDOW_WIDTH = 420
-  const WINDOW_HEIGHT = 580
+  const WINDOW_WIDTH = 440
+  const WINDOW_HEIGHT = 600
   const EDGE_PADDING = 12
 
   // Viewport calculation excluding Windows scrollbars
@@ -161,24 +244,51 @@ export function JonobondhuChat() {
     }
   }, [isOpen, hasCheckedFirstOpen])
 
-  // Initial welcome message in selected language
+  // Initial hospitable welcome message in selected language
   useEffect(() => {
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: 'welcome',
-          sender: 'ai',
-          text: isBn
-            ? 'আসসালামু আলাইকুম! আমি জনবন্ধু — আপনার সরকারি সেবা সহকারী। পাসপোর্ট, NID সংশোধন, জন্ম নিবন্ধন, ভূমি সেবা বা ভাতা সম্পর্কে যে কোনো প্রশ্ন করতে পারেন।'
-            : 'Hello! I am Jonobondhu — your citizen service assistant. Ask me anything about Passports, NID corrections, birth certificates, land records, or welfare allowances.',
-          time: new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-        },
-      ])
+    const session = loadChatSession()
+    if (session && session.messages.length > 0) {
+      // Upgrade any previous canned/robotic welcome message to the new warm greeting
+      const upgraded = session.messages.map((m: any, idx: number) => {
+        if (
+          idx === 0 &&
+          m.id?.startsWith('welcome') &&
+          (m.text.includes('আপনার সরকারি সেবা সহকারী') || m.text.includes('Hello! I am Jonobondhu'))
+        ) {
+          return {
+            ...m,
+            text: isBn ? GREETING_TEXT_BN : GREETING_TEXT_EN,
+          }
+        }
+        return m
+      })
+      setMessages(upgraded as Message[])
+      return
     }
-  }, [isBn, messages.length])
+
+    setMessages([
+      {
+        id: 'welcome',
+        sender: 'ai',
+        text: isBn ? GREETING_TEXT_BN : GREETING_TEXT_EN,
+        time: new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      },
+    ])
+  }, [isBn])
+
+  // Sync messages to sessionStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveChatSession({
+        messages,
+        activeResultSession: null,
+        lang: isBn ? 'bn' : 'en',
+      })
+    }
+  }, [messages, isBn])
 
   // Auto scroll to bottom of chat
   useEffect(() => {
@@ -308,13 +418,13 @@ export function JonobondhuChat() {
     const vw = getViewportWidth()
     const vh = getViewportHeight()
     const wWidth = Math.min(WINDOW_WIDTH, vw - 24)
-    const wHeight = Math.min(WINDOW_HEIGHT, vh - 40)
+    const wHeight = Math.min(WINDOW_HEIGHT, vh - 32)
     const defMascotY = mascotY ?? vh * 0.58
-    const defWinY = Math.max(16, Math.min(defMascotY - (wHeight / 2) + (MASCOT_HEIGHT / 2), vh - wHeight - 16))
-    const defWinX = vw < 640 ? Math.max(12, (vw - wWidth) / 2) : mascotSide === 'right' ? Math.max(16, vw - wWidth - MASCOT_WIDTH - 8) : Math.min(vw - wWidth - 16, MASCOT_WIDTH + 8)
+    const defWinY = Math.max(12, Math.min(defMascotY - (wHeight / 2) + (MASCOT_HEIGHT / 2), vh - wHeight - 16))
+    const defWinX = vw < 640 ? Math.max(8, (vw - wWidth) / 2) : mascotSide === 'right' ? Math.max(16, vw - wWidth - MASCOT_WIDTH - 8) : Math.min(vw - wWidth - 16, MASCOT_WIDTH + 8)
 
-    const curX = windowPos?.x ?? defWinX
-    const curY = windowPos?.y ?? defWinY
+    const curX = Math.max(8, Math.min(windowPos?.x ?? defWinX, vw - wWidth - 8))
+    const curY = Math.max(12, Math.min(windowPos?.y ?? defWinY, vh - wHeight - 16))
 
     winDragRef.current = {
       pointerId: e.pointerId,
@@ -347,10 +457,10 @@ export function JonobondhuChat() {
     const vw = getViewportWidth()
     const vh = getViewportHeight()
     const wWidth = Math.min(WINDOW_WIDTH, vw - 24)
-    const wHeight = Math.min(WINDOW_HEIGHT, vh - 40)
+    const wHeight = Math.min(WINDOW_HEIGHT, vh - 32)
 
     const newX = Math.max(8, Math.min(drag.initWinX + dx, vw - wWidth - 8))
-    const newY = Math.max(8, Math.min(drag.initWinY + dy, vh - wHeight - 8))
+    const newY = Math.max(12, Math.min(drag.initWinY + dy, vh - wHeight - 16))
 
     setWindowPos({ x: newX, y: newY })
   }
@@ -446,7 +556,7 @@ export function JonobondhuChat() {
 
   // ─── CHAT ENGINE: SEND & AUTOMATED CIVIC KNOWLEDGE RESPONSE ───
   const handleSendMessage = useCallback(
-    (textOverride?: string) => {
+    async (textOverride?: string) => {
       const text = (textOverride || input).trim()
       if (!text) return
 
@@ -508,23 +618,271 @@ export function JonobondhuChat() {
         return
       }
 
-      setTimeout(() => {
-        const aiMsg: Message = {
-          id: `ai-${Date.now()}`,
-          sender: 'ai',
-          text: nlpResult.reply,
-          time: new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          navCard: nlpResult.navCard,
-        }
+      let aiReplyText = nlpResult.reply
+      let aiNavCard = nlpResult.navCard
 
-        setMessages((prev) => [...prev, aiMsg])
-      }, 420)
+      try {
+        const apiRes = await fetch(`${API_BASE}/chat/jonobondhu`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, lang: isBn ? 'bn' : 'en' }),
+        })
+        if (apiRes.ok) {
+          const data = await apiRes.json()
+          if (data.reply) {
+            aiReplyText = data.reply
+            if (data.navCard) aiNavCard = data.navCard
+          }
+        }
+      } catch (err) {
+        // Fallback gracefully
+      }
+
+      const aiMsg: Message = {
+        id: `ai-${Date.now()}`,
+        sender: 'ai',
+        text: aiReplyText,
+        time: new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        navCard: aiNavCard,
+      }
+
+      setMessages((prev) => [...prev, aiMsg])
     },
     [input, isBn, router]
   )
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64 = reader.result as string
+      handleImageUpload(base64, file.name)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleImageUpload = async (base64: string, fileName: string) => {
+    setImageUploading(true)
+    const time = new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    const userMsgId = `user-img-${Date.now()}`
+    const aiScanId = `ai-scan-${Date.now()}`
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: userMsgId,
+        sender: 'user',
+        text: `📎 ${fileName}`,
+        time,
+      },
+      {
+        id: aiScanId,
+        sender: 'ai',
+        text: isBn ? '🔍 প্রবেশপত্রের ছবি স্ক্যান করা হচ্ছে... রোল ও রেজিস্ট্রেশন নম্বর খোঁজা হচ্ছে।' : '🔍 Scanning admit card image... Extracting roll and registration numbers.',
+        time,
+      },
+    ])
+
+    try {
+      const res = await fetch(`${API_BASE}/result/scan-admit-card`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64 }),
+      })
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiScanId
+              ? {
+                  ...m,
+                  text: isBn
+                    ? 'দুঃখিত, ছবিটি থেকে প্রয়োজনীয় তথ্য স্পষ্ট বোঝা যায়নি। অনুগ্রহ করে পরিষ্কার ছবি দিন অথবা ম্যানুয়ালি তথ্য পূরণ করুন।'
+                    : 'Sorry, could not read details from image clearly. Please provide a sharper photo or enter fields manually.',
+                }
+              : m
+          )
+        )
+        setImageUploading(false)
+        return
+      }
+
+      if (data.readyToFetch && data.sessionId && data.captchaImage) {
+        const fields = data.confirmedFields || {}
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiScanId
+              ? {
+                  ...m,
+                  text: isBn
+                    ? `✅ রোল (${fields.roll}) ও রেজিস্ট্রেশন (${fields.registration}) পাওয়া গেছে! ফলাফল পেতে নিচের ক্যাপচাটি পূরণ করুন:`
+                    : `✅ Found Roll (${fields.roll}) and Reg (${fields.registration})! Please solve the captcha below:`,
+                  captchaCard: {
+                    captchaImage: data.captchaImage,
+                    sessionId: data.sessionId,
+                    confirmedFields: fields,
+                  },
+                  expandToFullPage: {
+                    url: '/jonobondhu',
+                    promptBn: 'ক্যাপচা সহজে দেখতে পূর্ণাঙ্গ পেজে যান →',
+                    promptEn: 'Open full chat page for easier view →',
+                  },
+                }
+              : m
+          )
+        )
+      } else if (data.scanResult) {
+        const missing = data.scanResult.missing || []
+        const found = data.scanResult.found || {}
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiScanId
+              ? {
+                  ...m,
+                  text: isBn
+                    ? 'প্রবেশপত্র স্ক্যান সম্পন্ন হয়েছে। ফলাফল অনুসন্ধান করতে বাকি তথ্যগুলো নির্বাচন করুন:'
+                    : 'Admit card scanned. Please select the remaining fields to search results:',
+                  fieldForm: {
+                    foundFields: found,
+                    missingFields: missing,
+                  },
+                }
+              : m
+          )
+        )
+      }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiScanId
+            ? {
+                ...m,
+                text: isBn ? 'সার্ভারে সংযোগে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।' : 'Connection error. Please try again.',
+              }
+            : m
+        )
+      )
+    } finally {
+      setImageUploading(false)
+    }
+  }
+
+  const handleFieldFormSubmit = async (completedFields: AdmitCardFields, msgId: string) => {
+    const time = new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    const loadingId = `ai-init-${Date.now()}`
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: loadingId,
+        sender: 'ai',
+        text: isBn ? '⏳ শিক্ষাবোর্ড সার্ভার থেকে ক্যাপচা আনা হচ্ছে...' : '⏳ Connecting to education board for captcha...',
+        time,
+      },
+    ])
+
+    try {
+      const res = await fetch(`${API_BASE}/result/hsc/init`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(completedFields),
+      })
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === loadingId
+              ? {
+                  ...m,
+                  text: isBn
+                    ? `ত্রুটি: ${data.error || 'ক্যাপচা আনতে ব্যর্থ হয়েছে।'}`
+                    : `Error: ${data.error || 'Failed to load captcha.'}`,
+                }
+              : m
+          )
+        )
+        return
+      }
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === loadingId
+            ? {
+                ...m,
+                text: isBn ? 'নিচের ক্যাপচাটি পূরণ করুন:' : 'Please enter the captcha below:',
+                captchaCard: {
+                  captchaImage: data.captchaImage,
+                  sessionId: data.sessionId,
+                  confirmedFields: data.confirmedFields,
+                },
+                expandToFullPage: {
+                  url: '/jonobondhu',
+                  promptBn: 'ক্যাপচা সহজে দেখতে পূর্ণাঙ্গ পেজে যান →',
+                  promptEn: 'Open full chat page for easier view →',
+                },
+              }
+            : m
+        )
+      )
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === loadingId
+            ? {
+                ...m,
+                text: isBn ? 'ক্যাপচা আনা সম্ভব হয়নি।' : 'Failed to connect for captcha.',
+              }
+            : m
+        )
+      )
+    }
+  }
+
+  const handleCaptchaResolved = (result: HscResultData, msgId: string) => {
+    const time = new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    const resultMsgId = `ai-res-${Date.now()}`
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: resultMsgId,
+        sender: 'ai',
+        text: isBn
+          ? `🎉 অভিনন্দন! ${result.studentName}-এর ফলাফল পাওয়া গেছে (GPA ${result.gpa.toFixed(2)}, Grade ${result.grade})`
+          : `🎉 Congratulations! Result found for ${result.studentName} (GPA ${result.gpa.toFixed(2)}, Grade ${result.grade})`,
+        time,
+        resultCard: {
+          phase: 'result_ready',
+          result,
+        },
+        expandToFullPage: {
+          url: '/jonobondhu',
+          promptBn: 'পূর্ণাঙ্গ মার্কশিট ও গ্রেড বিবরণী দেখুন →',
+          promptEn: 'View full subject grades & marksheet →',
+        },
+      },
+    ])
+  }
+
+  const handleCaptchaError = (errMsg: string, msgId: string) => {
+    const time = new Date().toLocaleTimeString(isBn ? 'bn-BD' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `ai-err-${Date.now()}`,
+        sender: 'ai',
+        text: isBn ? `⚠️ ক্যাপচা যাচাই ব্যর্থ: ${errMsg}` : `⚠️ Captcha verification failed: ${errMsg}`,
+        time,
+      },
+    ])
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -596,24 +954,24 @@ export function JonobondhuChat() {
   const vw = getViewportWidth()
   const vh = getViewportHeight()
   const wWidth = Math.min(WINDOW_WIDTH, vw - 24)
-  const wHeight = Math.min(WINDOW_HEIGHT, vh - 40)
+  const wHeight = Math.min(WINDOW_HEIGHT, vh - 32)
 
   // Default initial window position (when not manually moved)
   const defaultMascotY = mascotY ?? vh * 0.58
-  const defaultWinY = Math.max(16, Math.min(defaultMascotY - (wHeight / 2) + (MASCOT_HEIGHT / 2), vh - wHeight - 16))
+  const defaultWinY = Math.max(12, Math.min(defaultMascotY - (wHeight / 2) + (MASCOT_HEIGHT / 2), vh - wHeight - 16))
 
   let defaultWinX = 0
   if (vw < 640) {
-    defaultWinX = Math.max(12, (vw - wWidth) / 2)
+    defaultWinX = Math.max(8, (vw - wWidth) / 2)
   } else if (mascotSide === 'right') {
     defaultWinX = Math.max(16, vw - wWidth - MASCOT_WIDTH - 8)
   } else {
     defaultWinX = Math.min(vw - wWidth - 16, MASCOT_WIDTH + 8)
   }
 
-  // Active window coordinates (manual drag or default attachment)
-  const curWinX = windowPos?.x ?? defaultWinX
-  const curWinY = windowPos?.y ?? defaultWinY
+  // Active window coordinates (strictly clamped so bottom of window never goes off-screen)
+  const curWinX = Math.max(8, Math.min(windowPos?.x ?? defaultWinX, vw - wWidth - 8))
+  const curWinY = Math.max(12, Math.min(windowPos?.y ?? defaultWinY, vh - wHeight - 16))
 
   // Distance from window edges to screen bezels
   const distRight = vw - (curWinX + wWidth)
@@ -649,7 +1007,7 @@ export function JonobondhuChat() {
   // Vertical offset of the speech tail relative to the bubble card
   const tailY = Math.max(32, Math.min(actualMascotY + (MASCOT_HEIGHT / 2) - curWinY, wHeight - 32))
 
-  if (!mounted) return null
+  if (!mounted || pathname === '/jonobondhu') return null
 
   return (
     <>
@@ -982,6 +1340,16 @@ export function JonobondhuChat() {
 
                   <button
                     type="button"
+                    onClick={() => router.push('/jonobondhu')}
+                    className="w-7 h-7 flex items-center justify-center text-neutral-500 hover:text-[#006A4E] hover:bg-emerald-50 transition-colors cursor-pointer rounded-none win-press z-10"
+                    title={isBn ? 'পূর্ণাঙ্গ চ্যাট পেজে যান' : 'Open full chat page'}
+                    aria-label={isBn ? 'পূর্ণাঙ্গ পেজ' : 'Full page'}
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 pointer-events-none" />
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setIsOpen(false)}
                     className="w-7 h-7 flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200 transition-colors cursor-pointer rounded-none win-press z-10"
                     title={isBn ? 'বন্ধ করুন' : 'Close'}
@@ -1134,21 +1502,21 @@ export function JonobondhuChat() {
                 </motion.div>
               ) : (
                 <>
-                  {/* ─── CONVERSATION SCROLL AREA ─── */}
-                  <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-[#F5F6F8] text-xs">
-                    <div className="flex items-center justify-between gap-2 px-0.5">
-                      <div className="inline-flex items-center gap-1.5 bg-white border border-neutral-200 px-2.5 py-1 text-[10px] text-neutral-600 rounded-none font-mono">
-                        <Info className="w-3 h-3 text-[#006A4E] shrink-0" />
-                        <span>{isBn ? 'দিশারী স্মার্ট সেবা গাইডেন্স ইন্টারফেস' : 'Dishari Smart Civic Guidance Interface'}</span>
+                  {/* ─── CONVERSATION SCROLL AREA (LOCKED BOUNDARY) ─── */}
+                  <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3.5 sm:p-4 space-y-4 bg-[#F8FAFC]">
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <div className="inline-flex items-center gap-1.5 bg-white border border-neutral-200/90 shadow-2xs px-2.5 py-1 text-[11px] text-neutral-600 rounded-full font-medium">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                        <span>{isBn ? 'জনবন্ধু সার্বক্ষণিক নাগরিক সহকারী' : 'Jonobondhu Civic Companion'}</span>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => setShowHeroGreeting(true)}
-                        className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold text-[#006A4E] hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-[#006A4E] hover:underline cursor-pointer"
                         title={isBn ? 'জনবন্ধু সেবা নির্দেশিকা দেখুন' : 'View Jonobondhu Service Guide'}
                       >
-                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                         <span>{isBn ? 'নির্দেশিকা' : 'Guide'}</span>
                       </button>
                     </div>
@@ -1161,10 +1529,10 @@ export function JonobondhuChat() {
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.22, ease: WIN10_EASE_ENTRANCE }}
-                          className={`flex items-start gap-2 ${isAi ? 'justify-start' : 'justify-end'}`}
+                          className={`flex items-start gap-2.5 ${isAi ? 'justify-start' : 'justify-end'}`}
                         >
                           {isAi && (
-                            <div className="w-6 h-6 rounded-full bg-white border border-neutral-300 flex items-center justify-center shrink-0 mt-0.5 overflow-hidden p-0.5 shadow-xs">
+                            <div className="w-7 h-7 rounded-full bg-white border border-neutral-300 flex items-center justify-center shrink-0 mt-1 overflow-hidden p-0.5 shadow-xs">
                               <picture className="w-full h-full flex items-center justify-center">
                                 <source srcSet="/mascot/jonobondhu_head.webp" type="image/webp" />
                                 <img
@@ -1176,21 +1544,21 @@ export function JonobondhuChat() {
                             </div>
                           )}
 
-                          <div className={`max-w-[82%] space-y-1 ${isAi ? 'items-start' : 'items-end'}`}>
+                          <div className={`max-w-[85%] space-y-1.5 ${isAi ? 'items-start' : 'items-end'}`}>
                             <div
-                              className={`p-3 rounded-none leading-relaxed text-xs sm:text-[13px] ${
+                              className={`p-3.5 sm:p-4 rounded-2xl leading-[1.8] sm:leading-[1.85] text-[15px] sm:text-[15.5px] font-normal tracking-[0.01em] whitespace-pre-line shadow-xs select-text ${
                                 isAi
-                                  ? 'bg-white border border-neutral-200 text-neutral-900 border-l-3 border-l-[#006A4E]'
-                                  : 'bg-[#006A4E] border border-[#004D38] text-white'
+                                  ? 'bg-white border border-neutral-200/90 text-slate-800 rounded-tl-xs'
+                                  : 'bg-[#006A4E] text-white rounded-tr-xs shadow-md'
                               }`}
                             >
                               {msg.text}
                               {msg.navCard && (
-                                <div className="mt-3 border-2 border-[#006A4E] bg-[#F0FAF5] rounded-none overflow-hidden shadow-sm">
+                                <div className="mt-3 border-2 border-[#006A4E] bg-[#F0FAF5] rounded-xl overflow-hidden shadow-sm not-prose">
                                   <div className="flex items-center justify-between px-3 py-2 bg-[#006A4E] text-white">
                                     <div className="flex items-center gap-1.5 min-w-0">
                                       <Zap className="w-3.5 h-3.5 text-amber-300 animate-pulse shrink-0" />
-                                      <span className="text-[11px] font-bold tracking-wide uppercase truncate">
+                                      <span className="text-[12px] font-bold tracking-wide uppercase truncate">
                                         {isBn ? 'স্বয়ংক্রিয় নেভিগেশন' : 'Autonomous AI Navigation'}
                                       </span>
                                     </div>
@@ -1200,16 +1568,16 @@ export function JonobondhuChat() {
                                   </div>
 
                                   <div className="px-3 pt-2.5 pb-2">
-                                    <div className="text-[10px] font-mono text-neutral-500 uppercase tracking-wider mb-1.5 font-bold">
+                                    <div className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider mb-1.5 font-bold">
                                       {isBn ? 'পরবর্তীবার নিজে যেতে ম্যানুয়াল পথ:' : 'Manual path for next time:'}
                                     </div>
-                                    <div className="flex items-center flex-wrap gap-1 text-[11px] font-medium text-neutral-700">
+                                    <div className="flex items-center flex-wrap gap-1 text-[12px] font-medium text-neutral-700">
                                       {(isBn ? msg.navCard.breadcrumbBn : msg.navCard.breadcrumbEn)
                                         .split('→')
                                         .map((step, i, arr) => (
                                           <React.Fragment key={i}>
                                             <span
-                                              className={`px-1.5 py-0.5 rounded-none border ${
+                                              className={`px-1.5 py-0.5 rounded-sm border ${
                                                 i === arr.length - 1
                                                   ? 'bg-[#006A4E] text-white border-[#004D38] font-bold shadow-xs'
                                                   : 'bg-white border-neutral-300 text-neutral-700'
@@ -1229,30 +1597,80 @@ export function JonobondhuChat() {
                                     <button
                                       type="button"
                                       onClick={() => router.push(msg.navCard!.url)}
-                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#006A4E] border border-[#006A4E] px-2.5 py-1 hover:bg-[#006A4E] hover:text-white transition-colors cursor-pointer win-press rounded-none"
+                                      className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#006A4E] border border-[#006A4E] px-2.5 py-1 hover:bg-[#006A4E] hover:text-white transition-colors cursor-pointer win-press rounded-sm"
                                     >
                                       <ExternalLink className="w-3 h-3" />
                                       <span>{isBn ? 'সরাসরি এই পাতায় যান' : 'Go directly to page'}</span>
                                     </button>
-                                    <span className="text-[10px] font-mono text-emerald-700 font-semibold">
+                                    <span className="text-[11px] font-mono text-emerald-700 font-semibold">
                                       {msg.navCard.url}
                                     </span>
                                   </div>
                                 </div>
                               )}
+
+                              {msg.fieldForm && (
+                                <div className="mt-2.5 not-prose">
+                                  <FieldCollectionForm
+                                    foundFields={msg.fieldForm.foundFields}
+                                    missingFields={msg.fieldForm.missingFields}
+                                    isBn={isBn}
+                                    onSubmit={(fields) => handleFieldFormSubmit(fields, msg.id)}
+                                  />
+                                </div>
+                              )}
+
+                              {msg.captchaCard && (
+                                <div className="mt-2.5 not-prose">
+                                  <CaptchaCard
+                                    captchaImage={msg.captchaCard.captchaImage}
+                                    sessionId={msg.captchaCard.sessionId}
+                                    confirmedFields={msg.captchaCard.confirmedFields}
+                                    isBn={isBn}
+                                    variant="compact"
+                                    onResolved={(result) => handleCaptchaResolved(result, msg.id)}
+                                    onError={(err) => handleCaptchaError(err, msg.id)}
+                                    onExpandToFullPage={() => router.push('/jonobondhu')}
+                                  />
+                                </div>
+                              )}
+
+                              {msg.resultCard?.result && (
+                                <div className="mt-2.5 not-prose">
+                                  <ResultCard
+                                    result={msg.resultCard.result}
+                                    variant="compact"
+                                    isBn={isBn}
+                                  />
+                                </div>
+                              )}
+
+                              {msg.expandToFullPage && (
+                                <div className="mt-2 pt-2 border-t border-neutral-200 flex justify-end not-prose">
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(msg.expandToFullPage!.url)}
+                                    className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#006A4E] hover:underline cursor-pointer"
+                                  >
+                                    <Maximize2 className="w-3.5 h-3.5" />
+                                    <span>{isBn ? msg.expandToFullPage.promptBn : msg.expandToFullPage.promptEn}</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
+
                             <div className="flex items-center gap-2 px-1">
-                              <span className="text-[9px] font-mono text-neutral-400">
+                              <span className="text-[11px] font-mono text-neutral-400">
                                 {msg.time}
                               </span>
                               {isAi && (
                                 <button
                                   type="button"
                                   onClick={() => speakText(msg.text, msg.id)}
-                                  className={`inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 border cursor-pointer win-press transition-colors ${
+                                  className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border cursor-pointer win-press transition-colors ${
                                     speakingMsgId === msg.id
                                       ? 'bg-emerald-100 text-[#006A4E] border-emerald-300 font-bold'
-                                      : 'bg-neutral-50 text-neutral-500 hover:text-neutral-900 border-neutral-200'
+                                      : 'bg-white text-neutral-600 hover:text-neutral-900 border-neutral-200 hover:bg-neutral-50'
                                   }`}
                                   title={speakingMsgId === msg.id ? (isBn ? 'থামুন' : 'Stop') : (isBn ? 'ভয়েসে শুনুন' : 'Listen')}
                                 >
@@ -1273,8 +1691,8 @@ export function JonobondhuChat() {
                           </div>
 
                           {!isAi && (
-                            <div className="w-6 h-6 bg-neutral-200 border border-neutral-300 flex items-center justify-center shrink-0 mt-0.5 text-neutral-700">
-                              <User className="w-3.5 h-3.5" />
+                            <div className="w-7 h-7 bg-neutral-200 border border-neutral-300 rounded-full flex items-center justify-center shrink-0 mt-1 text-neutral-700">
+                              <User className="w-4 h-4" />
                             </div>
                           )}
                         </motion.div>
@@ -1282,47 +1700,88 @@ export function JonobondhuChat() {
                     })}
 
                     {messages.length === 1 && (
-                      <div className="pt-2">
-                        <span className="text-[10px] font-mono font-bold text-neutral-500 uppercase tracking-wide block mb-1.5">
-                          {isBn ? 'সচরাচর জিজ্ঞাসিত প্রশ্ন:' : 'Frequent Questions:'}
-                        </span>
-                        <div className="flex flex-col gap-1.5">
-                          {quickPrompts.map((prompt, idx) => (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15, duration: 0.3 }}
+                        className="p-3.5 bg-white border border-neutral-200/90 rounded-2xl shadow-xs space-y-2.5"
+                      >
+                        <div className="flex items-center gap-2 px-1">
+                          <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-[13px] font-bold text-neutral-800">
+                            {isBn ? 'প্রয়োজনীয় সেবা বেছে নিন বা সরাসরি লিখুন:' : 'Popular Services (Tap to explore):'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {CIVIC_STARTER_CHIPS.map((chip, idx) => (
                             <button
                               key={idx}
                               type="button"
-                              onClick={() => handleSendMessage(prompt)}
-                              className="text-left bg-white hover:bg-neutral-50 border border-neutral-200 hover:border-[#006A4E] text-neutral-800 text-[11px] p-2 transition-colors cursor-pointer rounded-none font-medium win-press"
+                              onClick={() => handleSendMessage(isBn ? chip.promptBn : chip.promptEn)}
+                              className="flex items-start gap-2.5 p-2.5 bg-neutral-50/70 hover:bg-emerald-50/80 border border-neutral-200/80 hover:border-[#006A4E] text-left transition-all rounded-xl cursor-pointer group win-press"
                             >
-                              {prompt}
+                              <span className="text-base shrink-0 p-1 bg-white rounded-lg border border-neutral-200 group-hover:border-emerald-300">
+                                {chip.icon}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="text-[13px] font-semibold text-neutral-900 group-hover:text-[#006A4E] truncate">
+                                  {isBn ? chip.labelBn : chip.labelEn}
+                                </div>
+                                <div className="text-[11px] text-neutral-500 truncate leading-snug">
+                                  {isBn ? chip.subBn : chip.subEn}
+                                </div>
+                              </div>
                             </button>
                           ))}
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     <div ref={messagesEndRef} />
                   </div>
 
-                  {/* ─── INPUT TERMINAL FOOTER ─── */}
-                  <div className="p-2.5 bg-white border-t border-neutral-200 shrink-0">
-                    <div className="flex items-center gap-1.5 border border-neutral-300 bg-white px-2.5 py-1 focus-within:border-[#006A4E] transition-colors rounded-none">
+                  {/* ─── INPUT TERMINAL FOOTER (STRICTLY PINNED TO BOTTOM) ─── */}
+                  <div className="shrink-0 sticky bottom-0 z-20 bg-white border-t border-neutral-200/90 p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+                    <div className="flex items-center gap-1.5 border border-neutral-300 bg-neutral-50/60 focus-within:bg-white focus-within:border-[#006A4E] focus-within:ring-2 focus-within:ring-[#006A4E]/10 transition-all rounded-xl px-3 py-1.5">
                       <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder={isBn ? 'কী সরকারি সেবা প্রয়োজন? লিখুন...' : 'Ask about government services...'}
-                        className="flex-1 h-9 bg-transparent text-xs sm:text-sm text-neutral-900 placeholder:text-neutral-400 outline-none font-medium"
+                        placeholder={isBn ? 'কী সরকারি সেবা প্রয়োজন? এখানে লিখুন...' : 'Ask about government services...'}
+                        className="flex-1 h-9 sm:h-10 bg-transparent text-[14.5px] sm:text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none font-normal"
+                      />
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileChange}
                       />
 
                       <button
                         type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={imageUploading}
+                        className="p-1.5 text-neutral-500 hover:text-[#006A4E] hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer win-press shrink-0"
+                        title={isBn ? 'প্রবেশপত্র বা নথির ছবি আপলোড করুন' : 'Upload admit card or document image'}
+                        aria-label={isBn ? 'ছবি আপলোড' : 'Upload image'}
+                      >
+                        {imageUploading ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-[#006A4E]" />
+                        ) : (
+                          <ImagePlus className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={toggleListening}
-                        className={`p-1.5 transition-colors cursor-pointer rounded-none win-press ${
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer win-press shrink-0 ${
                           isListening
                             ? 'bg-rose-100 text-[#C8102E] animate-pulse border border-rose-300'
-                            : 'text-neutral-500 hover:text-[#006A4E]'
+                            : 'text-neutral-500 hover:text-[#006A4E] hover:bg-neutral-100'
                         }`}
                         title={
                           isListening
@@ -1338,21 +1797,24 @@ export function JonobondhuChat() {
                         type="button"
                         onClick={() => handleSendMessage()}
                         disabled={!input.trim()}
-                        className={`w-8 h-8 flex items-center justify-center transition-colors rounded-none shrink-0 win-press ${
+                        className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors shrink-0 win-press ${
                           input.trim()
-                            ? 'bg-[#006A4E] hover:bg-[#004D38] text-white cursor-pointer'
+                            ? 'bg-[#006A4E] hover:bg-[#004D38] text-white shadow-sm cursor-pointer'
                             : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
                         }`}
                         title={isBn ? 'বার্তা পাঠান' : 'Send message'}
                         aria-label={isBn ? 'বার্তা পাঠান' : 'Send message'}
                       >
-                        <Send className="w-3.5 h-3.5" />
+                        <Send className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-neutral-400 mt-1.5 px-0.5">
-                      <span>{isBn ? 'ইন্টারফেস সংস্করণ ৩.০ (স্মার্ট স্পিচ বাবল)' : 'Interface v3.0 (Smart Speech Bubble)'}</span>
-                      <span>{isBn ? 'দিশারী জনবন্ধু সহায়ক' : 'Dishari Jonobondhu'}</span>
+                    <div className="flex items-center justify-between text-[11px] text-neutral-400 mt-2 px-1 font-mono">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                        {isBn ? 'জনবন্ধু ৩.০ (স্মার্ট চ্যাট)' : 'Jonobondhu v3.0'}
+                      </span>
+                      <span>{isBn ? 'দিশারী নাগরিক পোর্টাল' : 'Dishari Citizen Portal'}</span>
                     </div>
                   </div>
                 </>
