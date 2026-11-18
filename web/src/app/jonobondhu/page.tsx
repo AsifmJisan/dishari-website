@@ -191,7 +191,21 @@ export default function JonobondhuPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64 }),
       })
-      const data = await res.json()
+
+      let data: any = null
+      try {
+        data = await res.json()
+      } catch {
+        throw new Error(
+          res.status >= 500
+            ? (isBn ? `সার্ভার সাময়িকভাবে সাড়া দিচ্ছে না (HTTP ${res.status})। দয়া করে ব্যাকএন্ড স্ট্যাটাস চেক করুন।` : `Server temporarily unavailable (HTTP ${res.status}).`)
+            : (isBn ? `সার্ভার ত্রুটি (HTTP ${res.status})` : `Server error (HTTP ${res.status})`)
+        )
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || data?.message || `HTTP ${res.status}`)
+      }
 
       if (data.readyToFetch && data.sessionId && data.captchaImage) {
         const captchaMsg: Message = {
@@ -221,6 +235,16 @@ export default function JonobondhuPage() {
           syncSession(withForm)
           return withForm
         })
+      } else if (data.sessionError) {
+        setMessages(prev => {
+          const updated = prev.map(m =>
+            m.id === scanMsgId
+              ? { ...m, text: isBn ? `⚠️ ${data.sessionError}` : `⚠️ ${data.sessionError}` }
+              : m
+          )
+          syncSession(updated)
+          return updated
+        })
       } else {
         setMessages(prev => {
           const updated = prev.map(m =>
@@ -232,11 +256,22 @@ export default function JonobondhuPage() {
           return updated
         })
       }
-    } catch {
+    } catch (err: any) {
+      console.error('Admit card scan error:', err)
+      const isLocalhostMisconfig = API_BASE.includes('localhost') && typeof window !== 'undefined' && !window.location.hostname.includes('localhost')
+      let errorMsg = isBn ? '❌ সংযোগ ত্রুটি। পুনরায় চেষ্টা করুন।' : '❌ Connection error. Please retry.'
+      if (isLocalhostMisconfig) {
+        errorMsg = isBn
+          ? '❌ লাইভ সার্ভারে ব্যাকএন্ডের ঠিকানা (NEXT_PUBLIC_API_URL) সেট করা নেই।'
+          : '❌ Backend URL (NEXT_PUBLIC_API_URL) is not set in production settings.'
+      } else if (err?.message) {
+        errorMsg = isBn ? `❌ সংযোগ ত্রুটি: ${err.message}` : `❌ Connection error: ${err.message}`
+      }
+
       setMessages(prev => {
         const updated = prev.map(m =>
           m.id === scanMsgId
-            ? { ...m, text: isBn ? '❌ সংযোগ ত্রুটি। পুনরায় চেষ্টা করুন।' : '❌ Connection error. Please retry.' }
+            ? { ...m, text: errorMsg }
             : m
         )
         syncSession(updated)
