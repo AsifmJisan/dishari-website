@@ -3,19 +3,55 @@ import path from 'path'
 import sharp from 'sharp'
 import Tesseract from 'tesseract.js'
 
-function findLocalTessDataDir(): string {
+function findLocalTessDataDir(): string | undefined {
   const candidates = [
     typeof __dirname !== 'undefined' ? path.resolve(__dirname, '..') : '',
     typeof __dirname !== 'undefined' ? path.resolve(__dirname, '../..') : '',
+    typeof __dirname !== 'undefined' ? __dirname : '',
     path.resolve(process.cwd(), 'server'),
     path.resolve(process.cwd()),
+    '/opt/render/project/src/server',
+    '/opt/render/project/src',
   ].filter(Boolean)
+
   for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'eng.traineddata'))) {
-      return dir
+    try {
+      if (fs.existsSync(path.join(dir, 'eng.traineddata'))) {
+        return dir
+      }
+    } catch {
+      // ignore
     }
   }
-  return '.'
+  return undefined
+}
+
+async function createSafeWorker(
+  languages: string | string[],
+  localDir: string | undefined
+): Promise<Tesseract.Worker | null> {
+  try {
+    const options: any = {
+      logger: () => {},
+    }
+    if (localDir) {
+      options.langPath = localDir
+      options.gzip = false
+    }
+    const worker = await Tesseract.createWorker(languages, 1, options)
+    return worker
+  } catch (err) {
+    console.warn(`Tesseract worker initialization failed for [${languages}]:`, err)
+    if (localDir) {
+      try {
+        const fallbackWorker = await Tesseract.createWorker(languages, 1, { logger: () => {} })
+        return fallbackWorker
+      } catch (fbErr) {
+        console.warn(`Tesseract CDN fallback also failed:`, fbErr)
+      }
+    }
+    return null
+  }
 }
 
 export interface ParsedDocumentData {
@@ -483,17 +519,15 @@ export async function runJavaScriptOCR(
           .linear(1.5, -30)
           .toBuffer()
 
-        const worker = await Tesseract.createWorker(['eng', 'ben'], 1, {
-          langPath: tessDir,
-          gzip: false,
-          logger: () => {},
-        })
-        const greenRes = await worker.recognize(greenBuffer)
-        await worker.terminate()
+        const worker = await createSafeWorker(['eng', 'ben'], tessDir)
+        if (worker) {
+          const greenRes = await worker.recognize(greenBuffer)
+          await worker.terminate()
 
-        if (greenRes.data.text && greenRes.data.text.trim().length > 30) {
-          recognizedText = greenRes.data.text
-          confidence = greenRes.data.confidence
+          if (greenRes.data.text && greenRes.data.text.trim().length > 30) {
+            recognizedText = greenRes.data.text
+            confidence = greenRes.data.confidence
+          }
         }
       } catch (greenErr) {
         console.warn('Green channel OCR attempt skipped:', greenErr)
@@ -520,17 +554,15 @@ export async function runJavaScriptOCR(
       }
 
       try {
-        const worker = await Tesseract.createWorker(['eng', 'ben'], 1, {
-          langPath: tessDir,
-          gzip: false,
-          logger: () => {},
-        })
-        const stdRes = await worker.recognize(processedBuffer)
-        await worker.terminate()
+        const worker = await createSafeWorker(['eng', 'ben'], tessDir)
+        if (worker) {
+          const stdRes = await worker.recognize(processedBuffer)
+          await worker.terminate()
 
-        if ((stdRes.data.text || '').length > recognizedText.length) {
-          recognizedText = stdRes.data.text
-          confidence = stdRes.data.confidence
+          if ((stdRes.data.text || '').length > recognizedText.length) {
+            recognizedText = stdRes.data.text
+            confidence = stdRes.data.confidence
+          }
         }
       } catch (stdErr) {
         console.warn('Standard OCR attempt failed:', stdErr)
@@ -562,25 +594,23 @@ export async function runJavaScriptOCR(
             .normalize()
             .toBuffer()
 
-          const cropWorker = await Tesseract.createWorker(['eng'], 1, {
-            langPath: tessDir,
-            gzip: false,
-            logger: () => {},
-          })
-          const cropRes = await cropWorker.recognize(cropped)
-          await cropWorker.terminate()
+          const cropWorker = await createSafeWorker(['eng'], tessDir)
+          if (cropWorker) {
+            const cropRes = await cropWorker.recognize(cropped)
+            await cropWorker.terminate()
 
-          const cropText = cropRes.data.text || ''
-          if (!parsed.roll) {
-            const rollMatch = cropText.match(/(?:Roll|রোল)\s*(?:No\.?|Number)?[:\s.\-c=\|]+([0-9]{5,8})/i) || cropText.match(/\b\d{6}\b/)
-            if (rollMatch) {
-              parsed.roll = rollMatch[1] || rollMatch[0]
+            const cropText = cropRes.data.text || ''
+            if (!parsed.roll) {
+              const rollMatch = cropText.match(/(?:Roll|রোল)\s*(?:No\.?|Number)?[:\s.\-c=\|]+([0-9]{5,8})/i) || cropText.match(/\b\d{6}\b/)
+              if (rollMatch) {
+                parsed.roll = rollMatch[1] || rollMatch[0]
+              }
             }
-          }
-          if (!parsed.reg_no) {
-            const regMatch = cropText.match(/(?:Reg|রেজি)\s*(?:No\.?|Number)?[:\s.\-c=\|]+([0-9]{8,12})/i) || cropText.match(/\b\d{10}\b/)
-            if (regMatch) {
-              parsed.reg_no = regMatch[1] || regMatch[0]
+            if (!parsed.reg_no) {
+              const regMatch = cropText.match(/(?:Reg|রেজি)\s*(?:No\.?|Number)?[:\s.\-c=\|]+([0-9]{8,12})/i) || cropText.match(/\b\d{10}\b/)
+              if (regMatch) {
+                parsed.reg_no = regMatch[1] || regMatch[0]
+              }
             }
           }
         }
