@@ -68,6 +68,7 @@ export default function Navbar() {
 
   const isServicesActive = pathname === '/services' || pathname.startsWith('/services/')
   const isOpportunitiesActive = pathname === '/opportunities'
+  const isHowItWorksActive = pathname === '/how-it-works'
   const isAboutActive = pathname === '/about'
   const isDashboardActive = pathname.startsWith('/dashboard')
 
@@ -136,10 +137,22 @@ export default function Navbar() {
             </Link>
 
             <Link
-              href="/#how-it-works"
-              className="relative text-neutral-700 hover:text-[#006A4E] font-bold text-sm tracking-wide transition-colors py-2 win-press"
+              href="/how-it-works"
+              className={cn(
+                'relative font-bold text-sm tracking-wide transition-colors py-2 flex items-center win-press',
+                isHowItWorksActive
+                  ? 'text-[#006A4E]'
+                  : 'text-neutral-700 hover:text-[#006A4E]'
+              )}
             >
-              {t('nav', 'howItWorks', lang)}
+              <span>{t('nav', 'howItWorks', lang)}</span>
+              {isHowItWorksActive && (
+                <motion.div
+                  layoutId="navbar-active-nav-link"
+                  className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#006A4E]"
+                  transition={WIN10_INDICATOR_SPRING}
+                />
+              )}
             </Link>
 
             <Link
@@ -368,9 +381,12 @@ export default function Navbar() {
                 </Link>
 
                 <Link
-                  href="/#how-it-works"
+                  href="/how-it-works"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3.5 py-3.5 min-h-[48px] text-base font-bold text-neutral-800 hover:text-[#006A4E] transition-colors win-press"
+                  className={cn(
+                    'flex items-center gap-3.5 py-3.5 min-h-[48px] text-base font-bold transition-colors win-press',
+                    pathname === '/how-it-works' ? 'text-[#006A4E]' : 'text-neutral-800 hover:text-[#006A4E]'
+                  )}
                 >
                   <div className="w-8 h-8 border border-neutral-200 bg-neutral-50 flex items-center justify-center shrink-0 rounded-none">
                     <HelpCircle className="w-4 h-4 text-amber-700" />

@@ -65,7 +65,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="/#how-it-works"
+                  href="/how-it-works"
                   className="text-emerald-100 hover:text-white font-medium transition-colors"
                 >
                   {t('nav', 'howItWorks', lang)}

@@ -196,13 +196,6 @@ export function JonobondhuChat() {
     phase: 'locking' | 'warping' | 'arrived'
   } | null>(null)
 
-  // Dimensions (optimized for spacious, comfortable civic reading)
-  const MASCOT_WIDTH = 125
-  const MASCOT_HEIGHT = 161
-  const WINDOW_WIDTH = 440
-  const WINDOW_HEIGHT = 600
-  const EDGE_PADDING = 12
-
   // Viewport calculation excluding Windows scrollbars
   const getViewportWidth = useCallback(() => {
     if (typeof document !== 'undefined' && document.documentElement.clientWidth) {
@@ -217,6 +210,22 @@ export function JonobondhuChat() {
     }
     return typeof window !== 'undefined' ? window.innerHeight : 800
   }, [])
+
+  // Responsive mascot sizing: ultra-compact on mobile phones (64x82px) and sleek on desktop (88x113px)
+  const getMascotDimensions = useCallback(() => {
+    const vw = getViewportWidth()
+    const isMobile = vw < 640
+    return {
+      width: isMobile ? 64 : 88,
+      height: isMobile ? 82 : 113,
+      isMobile,
+    }
+  }, [getViewportWidth])
+
+  const { width: MASCOT_WIDTH, height: MASCOT_HEIGHT } = getMascotDimensions()
+  const WINDOW_WIDTH = 440
+  const WINDOW_HEIGHT = 600
+  const EDGE_PADDING = 12
 
   // Initialize responsive default position on mount
   useEffect(() => {
@@ -1143,8 +1152,8 @@ export function JonobondhuChat() {
           transform: isMascotPeeking
             ? 'translateX(0px)'
             : effectiveSide === 'right'
-            ? 'translateX(135px)'
-            : 'translateX(-135px)',
+            ? `translateX(${MASCOT_WIDTH + 14}px)`
+            : `translateX(-${MASCOT_WIDTH + 14}px)`,
           opacity: isMascotPeeking ? 1 : 0,
           pointerEvents: isMascotPeeking ? 'auto' : 'none',
           transition: isDraggingMascot
@@ -1169,6 +1178,16 @@ export function JonobondhuChat() {
             side={effectiveSide}
             className="w-full h-full pointer-events-none"
           />
+
+          {/* Subtle Mobile Active Badge when closed */}
+          {!isOpen && (
+            <div className={`sm:hidden absolute -top-1.5 ${effectiveSide === 'right' ? 'right-1' : 'left-1'} flex items-center justify-center pointer-events-none`}>
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#00E599] border-2 border-white shadow-xs" />
+              </span>
+            </div>
+          )}
 
           {/* Cute Peek-Out Prompt Pill on Hover or Voice Listening */}
           <AnimatePresence>
