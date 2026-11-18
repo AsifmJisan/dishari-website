@@ -541,6 +541,54 @@ export async function runJavaScriptOCR(
     const parsed = parseDocumentText(recognizedText, docType)
     parsed.confidence = Math.round(confidence)
 
+    // Strategy 3: Targeted Roll & Reg box crop for Admit Cards (both HSC & SSC)
+    // On Bangladeshi admit cards, Roll and Reg are placed in a distinct boxed cell on the right side (~65%-98% width, ~30%-58% height).
+    // Extracting this box with English OCR prevents interference from Guilloche watermarks and table grid lines.
+    if (
+      (docType === 'educational_transcript' || /admit|certificate|secondary|intermediate|roll|reg/i.test(recognizedText)) &&
+      (!parsed.roll || !parsed.reg_no) &&
+      metadata?.width && metadata?.height
+    ) {
+      try {
+        const left = Math.round(metadata.width * 0.65)
+        const top = Math.round(metadata.height * 0.30)
+        const width = Math.min(Math.round(metadata.width * 0.33), metadata.width - left)
+        const height = Math.min(Math.round(metadata.height * 0.28), metadata.height - top)
+
+        if (width > 50 && height > 30) {
+          const cropped = await sharp(imageBuffer)
+            .extract({ left, top, width, height })
+            .grayscale()
+            .normalize()
+            .toBuffer()
+
+          const cropWorker = await Tesseract.createWorker(['eng'], 1, {
+            langPath: tessDir,
+            gzip: false,
+            logger: () => {},
+          })
+          const cropRes = await cropWorker.recognize(cropped)
+          await cropWorker.terminate()
+
+          const cropText = cropRes.data.text || ''
+          if (!parsed.roll) {
+            const rollMatch = cropText.match(/(?:Roll|রোল)\s*(?:No\.?|Number)?[:\s.\-c=\|]+([0-9]{5,8})/i) || cropText.match(/\b\d{6}\b/)
+            if (rollMatch) {
+              parsed.roll = rollMatch[1] || rollMatch[0]
+            }
+          }
+          if (!parsed.reg_no) {
+            const regMatch = cropText.match(/(?:Reg|রেজি)\s*(?:No\.?|Number)?[:\s.\-c=\|]+([0-9]{8,12})/i) || cropText.match(/\b\d{10}\b/)
+            if (regMatch) {
+              parsed.reg_no = regMatch[1] || regMatch[0]
+            }
+          }
+        }
+      } catch (cropErr) {
+        console.warn('Targeted Roll/Reg box crop skipped:', cropErr)
+      }
+    }
+
     return {
       success: true,
       document: parsed,

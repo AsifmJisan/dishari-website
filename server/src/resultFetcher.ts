@@ -255,21 +255,30 @@ export function parseAdmitCardFields(ocrResult: ParsedDocumentData): AdmitCardSc
     missing.push('examYear')
   }
 
-  // Group (Science, Humanities, Commerce, etc.)
-  const groupPatterns: Record<string, string[]> = {
-    Science: ['science', 'বিজ্ঞান'],
-    Humanities: ['humanities', 'arts', 'মানবিক'],
-    Commerce: ['commerce', 'business studies', 'ব্যবসায়'],
-  }
-  for (const [group, patterns] of Object.entries(groupPatterns)) {
-    const textLower = rawText.toLowerCase()
-    if (patterns.some(p => textLower.includes(p))) {
-      found.group = group
-      break
+  // Group (Science, Humanities, Business Studies / Commerce)
+  const explicitGroup = rawText.match(/(?:Group|বিভাগ|শাখা)\s*[:\s.\-]*([A-Za-z\s\u0980-\u09FF]{3,24})/i)
+  if (explicitGroup) {
+    const gText = explicitGroup[1].toLowerCase()
+    if (gText.includes('business') || gText.includes('commerce') || gText.includes('ব্যবসায়') || gText.includes('ব্যবসা')) {
+      found.group = 'Business Studies'
+    } else if (gText.includes('humanities') || gText.includes('arts') || gText.includes('মানবিক')) {
+      found.group = 'Humanities'
+    } else if (gText.includes('science') || gText.includes('বিজ্ঞান')) {
+      found.group = 'Science'
     }
   }
+
   if (!found.group) {
-    missing.push('group')
+    const textLower = rawText.toLowerCase()
+    if (textLower.includes('business studies') || textLower.includes('commerce') || textLower.includes('ব্যবসায়')) {
+      found.group = 'Business Studies'
+    } else if (textLower.includes('humanities') || textLower.includes('মানবিক')) {
+      found.group = 'Humanities'
+    } else if (textLower.includes('science') || textLower.includes('বিজ্ঞান')) {
+      found.group = 'Science'
+    } else {
+      missing.push('group')
+    }
   }
 
   return {
@@ -478,20 +487,46 @@ export async function fetchResultWithCaptcha(
   const boardName = String(res.board_name || confirmedFields.board || 'Dhaka').trim()
 
   // ── 2. Parse Subjects (res.display_details or res.sub_list) ────────────────
-  const HSC_SUBJECT_NAMES: Record<string, string> = {
+  const BOARD_SUBJECT_NAMES: Record<string, string> = {
+    // Common / SSC / HSC Language & Core
     '101': 'Bangla I',
     '102': 'Bangla II',
     '107': 'English I',
     '108': 'English II',
+    '109': 'Mathematics',
+    '110': 'Geography & Environment',
+    '111': 'Islam & Moral Education',
+    '112': 'Hindu Religion & Moral Education',
+    '113': 'Buddhist Religion & Moral Education',
+    '114': 'Christian Religion & Moral Education',
+    '127': 'Science',
+    '131': 'Computer Studies',
+    '140': 'Bangladesh & Global Studies',
+    '141': 'Bangladesh & Global Studies II',
+    '143': 'Business Entrepreneurship',
+    '144': 'Civics & Citizenship',
+    '145': 'Economics',
+    '146': 'Accounting',
+    '147': 'Physical Education, Health & Sports',
+    '149': 'Arts & Crafts',
+    '150': 'Agriculture Studies',
+    '151': 'Home Science',
+    '152': 'Finance & Banking',
+    '153': 'Career Education',
+    '154': 'Information & Communication Technology',
+
+    // HSC Science & Electives
     '174': 'Physics I',
     '175': 'Physics II',
     '176': 'Chemistry I',
     '177': 'Chemistry II',
+    '178': 'Biology I',
+    '179': 'Biology II',
     '265': 'Higher Mathematics I',
     '266': 'Higher Mathematics II',
     '275': 'Information & Communication Technology',
-    '178': 'Biology I',
-    '179': 'Biology II',
+
+    // HSC Business & Humanities
     '253': 'Accounting I',
     '254': 'Accounting II',
     '277': 'Business Organization & Management I',
@@ -505,11 +540,24 @@ export async function fetchResultWithCaptcha(
     '121': 'Logic I',
     '122': 'Logic II',
     '125': 'Psychology I',
-    '126': 'Psychology II',
-    '140': 'Geography I',
-    '141': 'Geography II',
     '133': 'Agriculture Studies I',
     '134': 'Agriculture Studies II',
+  }
+
+  function getSubjectName(code: string, currentExamType?: string): string {
+    const isSsc = (currentExamType || examType || '').toLowerCase() === 'ssc'
+    if (isSsc) {
+      if (code === '126') return 'Higher Mathematics'
+      if (code === '136') return 'Physics'
+      if (code === '137') return 'Chemistry'
+      if (code === '138') return 'Biology'
+    } else {
+      if (code === '126') return 'Psychology II'
+      if (code === '136') return 'Physics'
+      if (code === '137') return 'Chemistry'
+      if (code === '138') return 'Biology'
+    }
+    return BOARD_SUBJECT_NAMES[code] || `Subject ${code}`
   }
 
   function gradeToPoint(g: string): number {
@@ -547,7 +595,7 @@ export async function fetchResultWithCaptcha(
       const code = codePart.trim()
       const cleanGrade = gradePart.split('=')[0].trim().toUpperCase()
       const pt = gradeToPoint(cleanGrade)
-      const name = HSC_SUBJECT_NAMES[code] || `Subject ${code}`
+      const name = getSubjectName(code, examType)
       subjects.push({
         code,
         name,
@@ -558,7 +606,7 @@ export async function fetchResultWithCaptcha(
   } else if (Array.isArray(res.sub_list)) {
     for (const s of res.sub_list) {
       const code = String(s.code || s.sub_code || '').trim()
-      const name = String(s.name || s.sub_name || HSC_SUBJECT_NAMES[code] || `Subject ${code}`).trim()
+      const name = String(s.name || s.sub_name || getSubjectName(code, examType)).trim()
       const g = String(s.grade || '').trim().toUpperCase()
       const pt = parseFloat(String(s.gpa || s.point || gradeToPoint(g))) || 0
       subjects.push({

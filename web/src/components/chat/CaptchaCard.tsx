@@ -44,8 +44,8 @@ export function CaptchaCard({
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   // Editable fields with smart defaults from OCR scan
-  const [editableRoll, setEditableRoll] = useState(confirmedFields.roll || '160454')
-  const [editableReg, setEditableReg] = useState(confirmedFields.registration || '1210692514')
+  const [editableRoll, setEditableRoll] = useState(confirmedFields.roll || '')
+  const [editableReg, setEditableReg] = useState(confirmedFields.registration || '')
 
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -220,17 +220,22 @@ export function CaptchaCard({
           </div>
         </div>
 
-        {/* Board & Year badges */}
+        {/* Exam, Board & Year badges */}
         <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] font-mono text-neutral-700">
+          <span className="bg-white border border-neutral-200 px-2 py-0.5 uppercase">
+            {isBn ? 'পরীক্ষা:' : 'Exam:'} <strong className="text-neutral-900">{confirmedFields.examType?.toUpperCase() || 'HSC'}</strong>
+          </span>
           <span className="bg-white border border-neutral-200 px-2 py-0.5 capitalize">
             {isBn ? 'বোর্ড:' : 'Board:'} <strong className="text-neutral-900">{confirmedFields.board || 'Dhaka'}</strong>
           </span>
           <span className="bg-white border border-neutral-200 px-2 py-0.5">
-            {isBn ? 'সাল:' : 'Year:'} <strong className="text-neutral-900">{confirmedFields.examYear || '2017'}</strong>
+            {isBn ? 'সাল:' : 'Year:'} <strong className="text-neutral-900">{confirmedFields.examYear || ''}</strong>
           </span>
-          <span className="bg-white border border-neutral-200 px-2 py-0.5 capitalize">
-            {isBn ? 'শাখা:' : 'Group:'} <strong className="text-neutral-900">{confirmedFields.group || 'Science'}</strong>
-          </span>
+          {confirmedFields.group && (
+            <span className="bg-white border border-neutral-200 px-2 py-0.5 capitalize">
+              {isBn ? 'শাখা:' : 'Group:'} <strong className="text-neutral-900">{confirmedFields.group}</strong>
+            </span>
+          )}
         </div>
       </div>
 

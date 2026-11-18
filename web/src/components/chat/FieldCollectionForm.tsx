@@ -24,7 +24,7 @@ const BOARD_OPTIONS = [
   { value: 'technical',  labelBn: 'কারিগরি',    labelEn: 'Technical' },
 ]
 
-const EXAM_YEAR_OPTIONS = [2024, 2023, 2022, 2021, 2020, 2019]
+const EXAM_YEAR_OPTIONS = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011, 2010]
 
 const EXAM_TYPE_OPTIONS = [
   { value: 'hsc',   labelBn: 'এইচএসসি (HSC)',   labelEn: 'HSC' },
