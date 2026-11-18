@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { useLanguage } from '@/lib/language-context'
 import {
   Scan,
@@ -25,778 +25,621 @@ import {
   Fingerprint,
   FileText,
   Sliders,
-  Play,
-  RotateCcw,
+  Check,
+  ShieldAlert,
+  ArrowUpRight,
+  BadgeCheck,
 } from 'lucide-react'
-
-// ─── MOTION PRESETS ─────────────────────────────────────────────────────────
-const FADE_UP = {
-  initial: { opacity: 0, y: 24 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
-}
-
-const STAGGER_CONTAINER = {
-  animate: {
-    transition: {
-      staggerChildren: 0.12,
-    },
-  },
-}
 
 export default function HowItWorksPage() {
   const { lang } = useLanguage()
   const isBn = lang === 'bn'
 
-  // Interactive Stage Tabs (0: Vision, 1: Gov Bridge, 2: Neural Agent, 3: Citizen Locker)
-  const [activeStage, setActiveStage] = useState<number>(0)
+  // Scroll container tracking for Apple-style sticky scrollytelling
+  const containerRef = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start start', 'end end'],
+  })
 
-  // Stage 1 Vision Layer Simulator (0: Raw, 1: Green Channel, 2: ROI Crop, 3: Extracted JSON)
-  const [visionMode, setVisionMode] = useState<'raw' | 'green' | 'crop' | 'json'>('green')
+  // Manual stage override if user clicks timeline buttons
+  const [selectedStage, setSelectedStage] = useState<number | null>(null)
+  const [visionLayer, setVisionLayer] = useState<'raw' | 'green' | 'roi' | 'data'>('green')
+  const [simulatingHandshake, setSimulatingHandshake] = useState(false)
 
-  // Stage 2 Telemetry Playback
-  const [isRelaying, setIsRelaying] = useState(false)
-  const [telemetryStep, setTelemetryStep] = useState(3)
+  // Map scroll progress to active chapter index (0, 1, 2, 3)
+  const [scrollStep, setScrollStep] = useState(0)
 
-  // Stage 3 Query Simulator
-  const [selectedQueryIdx, setSelectedQueryIdx] = useState(0)
+  scrollYProgress.on('change', (latest) => {
+    if (selectedStage !== null) return
+    if (latest < 0.28) setScrollStep(0)
+    else if (latest < 0.55) setScrollStep(1)
+    else if (latest < 0.8) setScrollStep(2)
+    else setScrollStep(3)
+  })
 
-  // Automated Pipeline Demo
-  const [demoRunning, setDemoRunning] = useState(false)
-  const [demoStep, setDemoStep] = useState(0)
+  const currentStage = selectedStage !== null ? selectedStage : scrollStep
 
-  // Demo auto-advance
-  useEffect(() => {
-    if (!demoRunning) return
-    const timer = setInterval(() => {
-      setDemoStep((prev) => {
-        if (prev >= 3) {
-          setDemoRunning(false)
-          return 0
-        }
-        return prev + 1
-      })
-    }, 2800)
-    return () => clearInterval(timer)
-  }, [demoRunning])
-
-  const queries = [
+  // Chapters Data
+  const chapters = [
     {
-      textBn: 'বাবার মৃত্যুর পর জমির নামজারি কীভাবে করব?',
-      textEn: 'How to apply for land mutation after father’s death?',
-      intent: 'LAND_MUTATION_INHERITANCE',
-      deptBn: 'ভূমি মন্ত্রণালয় ও উপজেলা ভূমি অফিস',
-      deptEn: 'Ministry of Land & Upazila Land Office',
-      fee: '৳ ১,১৭০',
-      feeEn: 'BDT 1,170',
-      docsBn: ['ওয়ারিশান সনদপত্র', 'মৃত্যু সনদ', 'খতিয়ান ও পর্চা', 'স্মার্ট এনআইডি'],
-      docsEn: ['Succession Certificate', 'Death Certificate', 'Khatian / Porcha', 'Smart NID'],
-      route: '/services/land-mutation',
+      id: 0,
+      badgeBn: 'ধাপ ১: অপটিক্যাল ইমেজ প্রসেসিং',
+      badgeEn: 'Step 1: Optical Image Processing',
+      titleBn: '৫৪০ ন্যানোমিটার ফিল্টারে ওয়াটারমার্ক পৃথকীকরণ',
+      titleEn: '540nm Optical Filter & Guilloche Separation',
+      descBn:
+        'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ডের প্রবেশপত্রে লাল ও গোলাপি জটিল সিকিউরিটি প্যাটার্ন থাকে। দিশারীর কম্পিউটার ভিশন ইঞ্জিন ৫৪০nm গ্রিন চ্যানেল ফিল্টার ব্যবহার করে লাল কালি মুহূর্তে স্বচ্ছ ব্যাকগ্রাউন্ডে পরিণত করে এবং কালো টেক্সটের বৈসাদৃশ্য বাড়িয়ে তোলে। এরপর ডানদিকের নির্দিষ্ট রোল/রেজিস্ট্রেশন বাক্সে স্বয়ংক্রিয়ভাবে লেজার ফোকাস করে শতভাগ নির্ভুল তথ্য সংগ্রহ করে।',
+      descEn:
+        'Official Bangladeshi education board admit cards are guarded by complex pink Guilloche wave patterns. Standard vision OCR gets confused by table borders and watermarks. Dishari uses a 540nm optical green-channel matrix to mathematically evaporate pink security ink into clean white, instantly isolating Roll and Registration numbers with sub-pixel precision.',
+      highlightsBn: [
+        'লাল ও গোলাপি ওয়াটারমার্ক স্বয়ংক্রিয়ভাবে মুছে ফেলা',
+        'ডানপাশের রোল-রেজিস্ট্রেশন বক্সে মিলিমিটার ROI ফোকাস',
+        'ঝাপসা ও ক্যামেরায় তোলা ছবিতেও ৯৯.৪% নির্ভুলতা',
+      ],
+      highlightsEn: [
+        'Automatic evaporation of red & pink security watermarks',
+        'Targeted millimetric ROI crop on Roll/Reg cells',
+        '99.4% confidence even on blurry mobile photos',
+      ],
     },
     {
-      textBn: 'এইচএসসি ও এসএসসি পরীক্ষার রেজাল্ট মার্কশিট সহ কীভাবে দেখব?',
-      textEn: 'How to check official SSC/HSC results with marksheet?',
-      intent: 'EDUCATION_BOARD_EXAM_RESULTS',
-      deptBn: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড',
-      deptEn: 'Board of Intermediate & Secondary Education',
-      fee: '৳ ০ (সম্পূর্ণ বিনামূল্যে)',
-      feeEn: 'Free (BDT 0)',
-      docsBn: ['এডমিট কার্ডের রোল নম্বর', 'রেজিস্ট্রেশন নম্বর', 'বোর্ড ও পরীক্ষার সাল'],
-      docsEn: ['Admit Card Roll Number', 'Registration Number', 'Board & Year'],
-      route: '/jonobondhu',
+      id: 1,
+      badgeBn: 'ধাপ ২: লাইভ সরকারি সার্ভার ব্রিজ',
+      badgeEn: 'Step 2: Live Government Server Bridge',
+      titleBn: 'জিরো-মক আর্কিটেকচার ও লাইভ ক্যাপচা রিলে',
+      titleEn: 'Zero-Mock Protocol & Real-Time CAPTCHA Relay',
+      descBn:
+        'দিশারী কোনো ভুয়া বা কৃত্রিম ডেটাবেজ ব্যবহার করে না। প্রতিটি অনুসন্ধানে সরাসরি শিক্ষা বোর্ডের অফিশিয়াল গেটওয়েতে (educationboardresults.gov.bd/v2) নিরাপদ সংযোগ স্থাপন করা হয়। সার্ভারের ক্লাউড চ্যালেঞ্জ সিড ও সল্ট বিশ্লেষণ করে দ্রুততম সময়ে SHA-256 প্রুফ যাচাই শেষে আসল সরকারি ক্যাপচা ব্যবহারকারীর সামনে আনা হয়।',
+      descEn:
+        'Civic governance cannot tolerate synthetic mocks or outdated database caches. Dishari opens a real TLS handshake directly to the Ministry of Education server. It solves the anti-bot browser challenge using SHA-256 in 12ms and presents the genuine government CAPTCHA directly to the citizen.',
+      highlightsBn: [
+        '১০০% আসল সরকারি সার্ভারের লাইভ ডেটা',
+        'ক্লাউড চ্যালেঞ্জের তাৎক্ষণিক ক্রিপ্টোগ্রাফিক সমাধান',
+        'স্বচ্ছ ও দুর্নীতিমুক্ত ডিজিটাল রেজাল্ট রিলে',
+      ],
+      highlightsEn: [
+        '100% authentic live government server payload',
+        'Instant SHA-256 browser challenge verification',
+        'Direct, transparent, middleman-free result relay',
+      ],
     },
     {
-      textBn: 'জরুরি ই-পাসপোর্ট ফি এবং অনলাইনে আবেদনের নিয়ম কী?',
-      textEn: 'What is the urgent E-Passport fee and application rules?',
-      intent: 'PASSPORT_APPLICATION_URGENT',
-      deptBn: 'ইমিগ্রেশন ও পাসপোর্ট অধিদপ্তর (DIP)',
-      deptEn: 'Department of Immigration & Passports',
-      fee: '৳ ৮,০৫০ (৪৮ পাতা / ৫ বছর জরুরি)',
-      feeEn: 'BDT 8,050 (48 Pages / 5 Years Urgent)',
-      docsBn: ['জাতীয় পরিচয়পত্র (NID)', 'পূর্বের পাসপোর্ট (যদি থাকে)', 'চালান কপি'],
-      docsEn: ['National ID Card (NID)', 'Old Passport (if any)', 'Payment Chalan'],
-      route: '/services/passport',
+      id: 2,
+      badgeBn: 'ধাপ ৩: জনবন্ধু নিউরাল ইন্টেলিজেন্স',
+      badgeEn: 'Step 3: Jonobondhu Neural Intelligence',
+      titleBn: 'সাধারণ মানুষের মুখের কথা থেকে সরকারি বিধিবিধান ডিকোড',
+      titleEn: 'Translating Vernacular Speech to Exact Legal Steps',
+      descBn:
+        'একজন সাধারণ নাগরিকের পক্ষে আইনের জটিল পরিভাষা জানা সম্ভব নয়। "বাবার মৃত্যুর পর জমি কীভাবে নিজের নামে আনব?"—এমন স্বাভাবিক বাক্য শুনেই জনবন্ধু বুঝতে পারে এটি ই-নামজারি ও ওয়ারিশি খতিয়ানের বিষয়। এটি সাথে সাথে সরকারি নির্ধারিত ফি (৳১,১৭০), প্রয়োজনীয় কাজগপত্র ও অটোনমাস নেভিগেশনের মাধ্যমে পেজ লক করে দেয়।',
+      descEn:
+        'Citizens should never feel intimidated by bureaucratic jargon. Jonobondhu AI understands 64 district vernacular dialects, phonetic Banglish, and conversational queries. It maps everyday phrases to exact legal requirements, displaying official fees and initiating autonomous navigation.',
+      highlightsBn: [
+        'কথ্য বাংলা ও আঞ্চলিক ভাষা তাৎক্ষণিক অনুধাবন',
+        'সরকারি নির্দিষ্ট ফি তালিকা (এক টাকাও বেশি নয়)',
+        'স্বয়ংক্রিয় সেবা পেজ ট্রান্সফার (Autonomous Warp)',
+      ],
+      highlightsEn: [
+        'Sub-10ms intent parsing for spoken & written Bangla',
+        'Exact official government fee schedules (not a penny more)',
+        'Autonomous route locking and instant navigation',
+      ],
+    },
+    {
+      id: 3,
+      badgeBn: 'ধাপ ৪: সার্বভৌম নাগরিক লকার',
+      badgeEn: 'Step 4: Sovereign Citizen Locker',
+      titleBn: 'ডিজিটাল সিলমোহর ও ক্লায়েন্ট-সাইড এনক্রিপশন',
+      titleEn: 'Cryptographic Seals & Client-Side Encryption',
+      descBn:
+        'প্রাপ্ত মার্কশিট ও নাগরিক ডকুমেন্টস দিশারীর কোনো কেন্দ্রীয় সার্ভারে বিক্রি বা নজরদারির জন্য জমা রাখা হয় না। সম্পূর্ণ তথ্য ক্লায়েন্ট ডিভাইসে AES-256 এ এনক্রিপ্ট হয়ে জমা থাকে। প্রতিটি ডকুমেন্টের সাথে একটি ডিজিটাল SHA-256 টেম্পার-প্রুফ হ্যাশ ও কিউআর সিল যুক্ত থাকে যা অফলাইনে যে-কোনো কর্তৃপক্ষ যাচাই করতে পারে।',
+      descEn:
+        'Your civic records belong exclusively to you. Dishari uses a Zero-Knowledge security posture where documents are encrypted locally on your device with AES-256. Each marksheet carries a tamper-evident SHA-256 hash seal and QR code that can be verified offline by any authority.',
+      highlightsBn: [
+        'ডিভাইসে সংরক্ষিত সম্পূর্ণ ব্যক্তিগত এনক্রিপশন',
+        'অফলাইনেও কিউআর স্ক্যান করে সত্যতা যাচাইযোগ্য',
+        'যেকোনো সময় এক ক্লিকে সম্পূর্ণ তথ্য মুছে ফেলার স্বাধীনতা',
+      ],
+      highlightsEn: [
+        'Zero-knowledge on-device AES-256 storage',
+        'Offline verifiable QR tamper-evident signature',
+        'Irrevocable right to purge or export data anytime',
+      ],
     },
   ]
 
   return (
-    <div className="min-h-screen bg-[#040806] text-neutral-100 selection:bg-[#00E599] selection:text-neutral-950 font-sans relative overflow-hidden">
-      {/* ─── AMBIENT BACKGROUND GLOW & CYBER GRID ─── */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-gradient-to-b from-[#006A4E]/25 via-emerald-600/10 to-transparent blur-[140px] pointer-events-none -z-10" />
-      <div className="absolute top-[40%] right-[-100px] w-[500px] h-[500px] bg-[#00E599]/10 blur-[160px] pointer-events-none -z-10" />
-      <div className="absolute bottom-10 left-[-100px] w-[600px] h-[600px] bg-[#004D38]/20 blur-[180px] pointer-events-none -z-10" />
-
-      {/* Cyber Grid Lines */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.035] -z-10"
-        style={{
-          backgroundImage: `linear-gradient(#00E599 1px, transparent 1px), linear-gradient(90deg, #00E599 1px, transparent 1px)`,
-          backgroundSize: '48px 48px',
-        }}
-      />
-
-      {/* ─── SECTION 1: HERO TITLE (APPLE KEYNOTE STYLE) ─── */}
-      <section className="pt-20 sm:pt-28 pb-16 px-4 max-w-6xl mx-auto text-center relative">
-        <motion.div {...FADE_UP} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.1] backdrop-blur-md mb-6 shadow-inner">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#00E599]" />
-          </span>
-          <span className="text-xs font-mono uppercase tracking-widest text-emerald-300 font-semibold">
-            {isBn ? 'দিশারী ইঞ্জিনিয়ারিং আর্কিটেকচার' : 'Dishari Engineering & Architecture'}
-          </span>
+    <div className="min-h-screen bg-[#FAFAF8] text-[#1C1917] selection:bg-[#006A4E] selection:text-white font-sans relative">
+      {/* ─── HERO HEADER ───────────────────────────────────────────────────── */}
+      <section className="pt-16 pb-12 sm:pt-24 sm:pb-16 px-4 max-w-5xl mx-auto text-center border-b border-[#E7E5E4]">
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-200 text-[#006A4E] rounded-none text-xs font-bold font-mono tracking-wider uppercase mb-5"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>{isBn ? 'স্বচ্ছ নাগরিক প্রযুক্তির অন্দরমহল' : 'The Architecture of Civic Freedom'}</span>
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] as const }}
-          className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white max-w-4xl mx-auto leading-[1.12]"
+          transition={{ delay: 0.08 }}
+          className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#1C1917] tracking-tight leading-[1.18]"
         >
           {isBn ? (
             <>
               পর্দার আড়ালে যেভাবে কাজ করে <br />
-              <span className="bg-gradient-to-r from-emerald-400 via-[#00E599] to-teal-300 bg-clip-text text-transparent">
-                নাগরিক মুক্তির অদৃশ্য প্রযুক্তি
-              </span>
+              <span className="text-[#006A4E]">দিশারীর প্রতিটি নাগরিক সেবা</span>
             </>
           ) : (
             <>
-              Behind The Velvet Rope: <br />
-              <span className="bg-gradient-to-r from-emerald-400 via-[#00E599] to-teal-300 bg-clip-text text-transparent">
-                The Architecture of Civic Freedom
-              </span>
+              Under The Hood: <br />
+              <span className="text-[#006A4E]">How Dishari Works Behind The Scenes</span>
             </>
           )}
         </motion.h1>
 
         <motion.p
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.75, delay: 0.15, ease: [0.16, 1, 0.3, 1] as const }}
-          className="mt-6 text-base sm:text-lg text-neutral-300/90 max-w-2xl mx-auto font-normal leading-relaxed"
+          transition={{ delay: 0.16 }}
+          className="mt-5 text-base sm:text-lg text-[#78716C] max-w-2xl mx-auto leading-relaxed"
         >
           {isBn
-            ? 'কোনো ভুয়া বা কৃত্রিম ডেটাবেজ নয়। মাল্টি-স্পেকট্রাল ভিশন, লাইভ সরকারি চ্যালেঞ্জ সলভার এবং জিরো-মিডলম্যান আর্কিটেকচারের মাধ্যমে ১৭ কোটি নাগরিকের সরাসরি সেবা নিশ্চিতকরণ।'
-            : 'Zero mock databases. Multi-spectral document vision, real-time government challenge protocols, and decentralized encrypted storage built for 170 million citizens.'}
+            ? 'কোনো ভুয়া তথ্য বা নকল ডেটাবেজ নয়। মাল্টি-স্পেকট্রাল ভিশন, লাইভ সরকারি সার্ভার ব্রিজ ও ক্লায়েন্ট এনক্রিপশনের মাধ্যমে কীভাবে ১৭ কোটি মানুষের সেবা সুরক্ষিত হয়, নিচে স্ক্রোল করে সরাসরি দেখুন।'
+            : 'Zero mock databases. Multi-spectral document vision, live government protocol verification, and decentralized encrypted storage built for 170 million citizens. Scroll to explore.'}
         </motion.p>
 
-        {/* Apple-style Key Metrics Ribbon */}
+        {/* Clean Civic Trust Metrics */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.75, delay: 0.3, ease: [0.16, 1, 0.3, 1] as const }}
-          className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto"
+          transition={{ delay: 0.24 }}
+          className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl mx-auto"
         >
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md text-left">
-            <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400">0 Mocks</div>
-            <div className="text-xs text-neutral-400 mt-1">{isBn ? '১০০% আসল সরকারি এপিআই' : '100% Official Gov Endpoints'}</div>
+          <div className="bg-white border border-[#E7E5E4] p-3 text-left shadow-2xs">
+            <div className="text-xl sm:text-2xl font-black font-mono text-[#006A4E]">০ নকল ডেটা</div>
+            <div className="text-[11px] text-[#78716C] mt-0.5">{isBn ? '১০০% আসল সরকারি সার্ভার' : '100% Real Gov Endpoints'}</div>
           </div>
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md text-left">
-            <div className="text-2xl sm:text-3xl font-black font-mono text-[#00E599]">&lt; 850ms</div>
-            <div className="text-xs text-neutral-400 mt-1">{isBn ? 'ডকুমেন্ট ভিশন ডিকোড গতি' : 'Vision OCR Decode Time'}</div>
+          <div className="bg-white border border-[#E7E5E4] p-3 text-left shadow-2xs">
+            <div className="text-xl sm:text-2xl font-black font-mono text-neutral-900">&lt; ৮৫০ms</div>
+            <div className="text-[11px] text-[#78716C] mt-0.5">{isBn ? 'ভিশন স্ক্যান ও ডিকোড' : 'Vision OCR Decode Time'}</div>
           </div>
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md text-left">
-            <div className="text-2xl sm:text-3xl font-black font-mono text-teal-300">SHA-256</div>
-            <div className="text-xs text-neutral-400 mt-1">{isBn ? 'প্রুফ-অব-ওয়ার্ক চ্যালেঞ্জ সলভার' : 'Proof-of-Work Engine'}</div>
+          <div className="bg-white border border-[#E7E5E4] p-3 text-left shadow-2xs">
+            <div className="text-xl sm:text-2xl font-black font-mono text-neutral-900">SHA-256</div>
+            <div className="text-[11px] text-[#78716C] mt-0.5">{isBn ? 'ডিজিটাল সিলমোহর' : 'Cryptographic Hash Seal'}</div>
           </div>
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md text-left">
-            <div className="text-2xl sm:text-3xl font-black font-mono text-white">৳ ০ ফি</div>
-            <div className="text-xs text-neutral-400 mt-1">{isBn ? 'দালাল ও অতিরিক্ত খরচ শূন্য' : 'Zero Middlemen Tolls'}</div>
+          <div className="bg-white border border-[#E7E5E4] p-3 text-left shadow-2xs">
+            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-600">৳ ০ ফি</div>
+            <div className="text-[11px] text-[#78716C] mt-0.5">{isBn ? 'দালাল ও অতিরিক্ত খরচ শূন্য' : 'Zero Middlemen Tolls'}</div>
           </div>
         </motion.div>
       </section>
 
-      {/* ─── SECTION 2: INTERACTIVE 4-STAGE ENGINE DEEP-DIVE ─── */}
-      <section className="py-12 sm:py-20 px-4 max-w-6xl mx-auto">
-        <div className="text-center mb-10">
-          <span className="text-xs font-mono font-bold text-[#00E599] uppercase tracking-widest">
-            {isBn ? '৪-ধাপের স্বয়ংক্রিয় পাইপলাইন' : '4-Stage Real-Time Pipeline'}
-          </span>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-white mt-2">
-            {isBn ? 'প্রতিটি রিকোয়েস্টের ভেতর যা ঘটে' : 'What Happens Inside Every Transaction'}
-          </h2>
-        </div>
-
-        {/* Stage Selector Pills */}
-        <div className="flex items-center justify-start sm:justify-center gap-2 overflow-x-auto pb-4 no-scrollbar">
-          {[
-            { id: 0, icon: <Scan className="w-4 h-4" />, labelBn: '১. কম্পিউটার ভিশন (OCR)', labelEn: '1. Vision & ROI OCR' },
-            { id: 1, icon: <Cpu className="w-4 h-4" />, labelBn: '২. সরকারি সার্ভার হ্যান্ডশেক', labelEn: '2. Gov Server Bridge' },
-            { id: 2, icon: <Sparkles className="w-4 h-4" />, labelBn: '৩. জনবন্ধু নিউরাল এজেন্ট', labelEn: '3. Jonobondhu Agent' },
-            { id: 3, icon: <ShieldCheck className="w-4 h-4" />, labelBn: '৪. ক্লায়েন্ট ভল্ট ও সুরক্ষা', labelEn: '4. Sovereign Vault' },
-          ].map((stage) => {
-            const isActive = activeStage === stage.id
-            return (
+      {/* ─── SCROLLYTELLING CONTAINER (APPLE PRODUCT SHOWCASE STYLE) ───────── */}
+      <section ref={containerRef} className="max-w-6xl mx-auto px-4 py-16 sm:py-24 relative">
+        {/* Step Quick Navigation Bar */}
+        <div className="sticky top-20 z-30 mb-8 bg-[#FAFAF8]/95 backdrop-blur-md py-2 border-b border-[#E7E5E4] flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-2">
+            {chapters.map((chap, idx) => (
               <button
-                key={stage.id}
-                onClick={() => setActiveStage(stage.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold tracking-wide transition-all shrink-0 cursor-pointer ${
-                  isActive
-                    ? 'bg-[#00E599] text-neutral-950 shadow-[0_0_24px_rgba(0,229,153,0.35)]'
-                    : 'bg-white/[0.04] text-neutral-300 hover:bg-white/[0.08] hover:text-white border border-white/[0.06]'
+                key={chap.id}
+                onClick={() => setSelectedStage(idx)}
+                className={`px-3 py-1.5 text-xs font-mono font-bold transition-all rounded-none cursor-pointer flex items-center gap-1.5 ${
+                  currentStage === idx
+                    ? 'bg-[#006A4E] text-white shadow-xs'
+                    : 'bg-white border border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]'
                 }`}
               >
-                {stage.icon}
-                <span>{isBn ? stage.labelBn : stage.labelEn}</span>
+                <span>{`0${idx + 1}`}</span>
+                <span className="hidden sm:inline">{isBn ? chap.badgeBn.split(':')[1] : chap.badgeEn.split(':')[1]}</span>
               </button>
-            )
-          })}
+            ))}
+          </div>
+
+          <div className="text-[11px] font-mono text-[#78716C] shrink-0">
+            {isBn ? `ধাপ ${currentStage + 1} / ৪` : `Stage ${currentStage + 1} of 4`}
+          </div>
         </div>
 
-        {/* ─── STAGE 0: COMPUTER VISION & GUILLOCHE STRIPPING ─── */}
-        {activeStage === 0 && (
-          <motion.div
-            key="stage-0"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mt-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-white/[0.01] border border-white/[0.1] p-6 sm:p-10 backdrop-blur-xl"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              {/* Left Column: Technical Narrative */}
-              <div className="lg:col-span-5 space-y-4">
-                <div className="inline-flex items-center gap-2 text-xs font-mono text-emerald-400 font-bold uppercase tracking-wider">
-                  <Layers className="w-4 h-4" />
-                  <span>{isBn ? 'মাল্টি-স্পেকট্রাল ইমেজ প্রসেসিং' : 'Multi-Spectral Image Pipeline'}</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-white">
-                  {isBn
-                    ? 'বাংলাদেশি অ্যাডমিট কার্ডের গোলাপি গুইলোশ সিকিউরিটি প্যাটার্ন পৃথকীকরণ'
-                    : 'Stripping Complex Guilloche Security Borders in Real Time'}
-                </h3>
-                <p className="text-sm text-neutral-300 leading-relaxed">
-                  {isBn
-                    ? 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ডের অ্যাডমিট কার্ডে লাল ও গোলাপি জটিল ওয়াটারমার্ক থাকে, যার কারণে সাধারণ OCR রোল নম্বর ও রেজিস্ট্রেশন পড়তে ব্যর্থ হয়। দিশারী ৫৪০ ন্যানোমিটার গ্রিন-চ্যানেল অপটিক্যাল ম্যাট্রিক্স ব্যবহার করে লাল রঙকে মুহূর্তে সাদা ব্যাকগ্রাউন্ডে রূপান্তর করে।'
-                    : 'Official education board admit cards are protected by high-density red and pink Guilloche wave patterns. Standard OCR engines fail due to table border noise. Dishari isolates the Green Channel matrix (540nm), mathematically turning the security inks transparent and amplifying dark graphite text.'}
-                </p>
-
-                {/* Interactive Controls */}
-                <div className="pt-3">
-                  <span className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider block mb-2">
-                    {isBn ? 'ইন্টারঅ্যাক্টিভ ভিশন লেয়ার পরীক্ষা করুন:' : 'Test Real Vision Processing Layers:'}
+        {/* 2-Column Scrollytelling Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Narrative Content (Scrollable) */}
+          <div className="lg:col-span-6 space-y-16 pb-24">
+            {chapters.map((chap, idx) => {
+              const isSelected = currentStage === idx
+              return (
+                <div
+                  key={chap.id}
+                  className={`p-6 sm:p-8 border transition-all duration-300 ${
+                    isSelected
+                      ? 'bg-white border-[#006A4E] shadow-sm border-l-4 border-l-[#006A4E]'
+                      : 'bg-[#FAFAF8] border-[#E7E5E4] opacity-75'
+                  }`}
+                >
+                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#006A4E] block mb-2">
+                    {isBn ? chap.badgeBn : chap.badgeEn}
                   </span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { key: 'raw', labelBn: '১. র’ ছবি (RGB)', labelEn: '1. Raw RGB Image' },
-                      { key: 'green', labelBn: '২. গ্রিন চ্যানেল সেপারেশন', labelEn: '2. Green Channel Separation' },
-                      { key: 'crop', labelBn: '৩. সাব-রিজিয়ন ROI ক্রপ', labelEn: '3. Sub-Region ROI Crop' },
-                      { key: 'json', labelBn: '৪. এক্সট্র্যাক্টেড ডেটা স্ট্রিম', labelEn: '4. Extracted Data Stream' },
-                    ].map((mode) => (
-                      <button
-                        key={mode.key}
-                        onClick={() => setVisionMode(mode.key as any)}
-                        className={`text-left p-2.5 rounded-lg text-xs font-mono transition-all border cursor-pointer ${
-                          visionMode === mode.key
-                            ? 'bg-emerald-950/80 border-[#00E599] text-[#00E599] font-bold shadow-xs'
-                            : 'bg-neutral-900/60 border-neutral-800 text-neutral-400 hover:text-neutral-200'
-                        }`}
-                      >
-                        {isBn ? mode.labelBn : mode.labelEn}
-                      </button>
+                  <h2 className="text-xl sm:text-2xl font-black text-[#1C1917] leading-snug">
+                    {isBn ? chap.titleBn : chap.titleEn}
+                  </h2>
+                  <p className="mt-3 text-sm text-[#78716C] leading-relaxed">
+                    {isBn ? chap.descBn : chap.descEn}
+                  </p>
+
+                  <div className="mt-5 space-y-2 pt-4 border-t border-[#E7E5E4]">
+                    {(isBn ? chap.highlightsBn : chap.highlightsEn).map((h, hIdx) => (
+                      <div key={hIdx} className="flex items-start gap-2 text-xs font-semibold text-[#1C1917]">
+                        <Check className="w-4 h-4 text-[#006A4E] shrink-0 mt-0.5" />
+                        <span>{h}</span>
+                      </div>
                     ))}
                   </div>
+
+                  <div className="mt-5 pt-2">
+                    <button
+                      onClick={() => setSelectedStage(idx)}
+                      className={`text-xs font-bold font-mono uppercase inline-flex items-center gap-1.5 cursor-pointer ${
+                        isSelected ? 'text-[#006A4E]' : 'text-neutral-500 hover:text-neutral-900'
+                      }`}
+                    >
+                      <span>{isBn ? 'এই ধাপের ইন্টারঅ্যাক্টিভ ভিউ দেখুন' : 'Inspect This Stage Live'}</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
+              )
+            })}
+          </div>
+
+          {/* Right Column: Sticky Interactive Stage Visualizer */}
+          <div className="lg:col-span-6 sticky top-36 z-20">
+            <div className="bg-white border border-[#E7E5E4] p-5 sm:p-6 shadow-sm rounded-none min-h-[480px] flex flex-col justify-between">
+              {/* Stage Top Bar */}
+              <div className="flex items-center justify-between border-b border-[#E7E5E4] pb-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#006A4E]" />
+                  <span className="font-mono text-xs font-bold text-[#1C1917] uppercase tracking-wider">
+                    {currentStage === 0 && (isBn ? 'কম্পিউটার ভিশন সিমুলেটর' : 'Vision Engine Simulator')}
+                    {currentStage === 1 && (isBn ? 'সরকারি গেটওয়ে টেলিমেট্রি' : 'Gov Gateway Telemetry')}
+                    {currentStage === 2 && (isBn ? 'জনবন্ধু রুলস অ্যানালাইজার' : 'Jonobondhu Civic Rules')}
+                    {currentStage === 3 && (isBn ? 'এনক্রিপ্টেড লকার ভল্ট' : 'Encrypted Vault Preview')}
+                  </span>
+                </div>
+                <span className="text-[11px] font-mono font-bold bg-emerald-50 text-[#006A4E] px-2 py-0.5 border border-emerald-200">
+                  {currentStage === 0 && '540nm FILTER'}
+                  {currentStage === 1 && 'TLS 1.3 / 200 OK'}
+                  {currentStage === 2 && 'NLP ROUTER'}
+                  {currentStage === 3 && 'AES-256 SEALED'}
+                </span>
               </div>
 
-              {/* Right Column: Visual Simulator Display */}
-              <div className="lg:col-span-7">
-                <div className="rounded-xl border border-neutral-700/80 bg-neutral-950 p-4 relative overflow-hidden shadow-2xl">
-                  {/* Laser Sweeper Animation */}
-                  <motion.div
-                    animate={{ top: ['0%', '100%', '0%'] }}
-                    transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                    className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00E599] to-transparent shadow-[0_0_15px_3px_rgba(0,229,153,0.7)] z-20 pointer-events-none"
-                  />
-
-                  {/* Simulator Screen */}
-                  <div className="min-h-[290px] rounded-lg bg-neutral-900/90 border border-neutral-800 p-4 font-mono text-xs flex flex-col justify-between relative overflow-hidden">
-                    {/* Header info */}
-                    <div className="flex items-center justify-between text-[11px] text-neutral-400 border-b border-neutral-800 pb-2 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-[#00E599]" />
-                        <span>LAYER_VIEW: {visionMode.toUpperCase()}</span>
-                      </div>
-                      <span className="text-emerald-400 font-bold">CONFIDENCE: 99.4%</span>
+              {/* Dynamic Interactive Stage Body */}
+              <div className="flex-1 flex flex-col justify-center">
+                {/* ── STAGE 0 VISUALIZER: Admit Card Multi-Spectral Vision ── */}
+                {currentStage === 0 && (
+                  <div className="space-y-4">
+                    {/* Layer Switcher Tabs */}
+                    <div className="grid grid-cols-4 gap-1.5 p-1 bg-neutral-100 border border-[#E7E5E4]">
+                      {[
+                        { key: 'raw', label: isBn ? 'র’ ছবি' : 'Raw RGB' },
+                        { key: 'green', label: isBn ? 'গ্রিন চ্যানেল' : '540nm Filter' },
+                        { key: 'roi', label: isBn ? 'ROI ক্রপ' : 'ROI Crop' },
+                        { key: 'data', label: isBn ? 'ডেটা' : 'Data' },
+                      ].map((tab) => (
+                        <button
+                          key={tab.key}
+                          onClick={() => setVisionLayer(tab.key as any)}
+                          className={`py-1.5 text-center text-[11px] font-mono font-bold transition-colors cursor-pointer rounded-none ${
+                            visionLayer === tab.key
+                              ? 'bg-white text-[#006A4E] shadow-2xs'
+                              : 'text-neutral-500 hover:text-neutral-900'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
                     </div>
 
-                    {/* Mode Content */}
-                    {visionMode === 'raw' && (
-                      <div className="space-y-3 py-4 text-center">
-                        <div className="inline-block p-4 rounded-lg bg-pink-950/40 border border-pink-700/50 text-pink-200 max-w-md mx-auto text-left leading-relaxed">
-                          <div className="text-[10px] text-pink-400 uppercase font-bold mb-1">
-                            ⚠️ Guilloche Background Interference Detected
-                          </div>
-                          <div className="opacity-70 text-[11px]">
-                            BOARD OF INTERMEDIATE AND SECONDARY EDUCATION, DHAKA <br />
-                            Admit Card: Secondary School Certificate Examination - 2016 <br />
-                            Roll No.: [Noise Intercepted] | Reg. No.: 1310271637
-                          </div>
-                        </div>
-                        <p className="text-[11px] text-neutral-400">
-                          {isBn ? 'লাল ও গোলাপি ফ্রেম সাধারণ OCR-কে বিভ্রান্ত করে।' : 'Pink Guilloche borders create high noise in standard vision.'}
-                        </p>
-                      </div>
-                    )}
+                    {/* Visual Card Frame */}
+                    <div className="border border-neutral-200 bg-[#FAFAF8] p-4 relative overflow-hidden min-h-[220px] flex flex-col justify-center">
+                      {/* Laser scan line animation */}
+                      <motion.div
+                        animate={{ top: ['0%', '100%', '0%'] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                        className="absolute left-0 right-0 h-[2px] bg-[#006A4E] shadow-[0_0_8px_rgba(0,106,78,0.6)] z-10 pointer-events-none"
+                      />
 
-                    {visionMode === 'green' && (
-                      <div className="space-y-3 py-4 text-center">
-                        <div className="inline-block p-4 rounded-lg bg-emerald-950/40 border border-emerald-500/50 text-emerald-200 max-w-md mx-auto text-left leading-relaxed">
-                          <div className="text-[10px] text-emerald-400 uppercase font-bold mb-1">
-                            ✓ 540nm Optical Filter Applied (Color Subtraction)
+                      {visionLayer === 'raw' && (
+                        <div className="p-3 bg-red-50/60 border border-red-200 text-xs font-mono space-y-1">
+                          <div className="text-[10px] font-bold text-red-700 uppercase">
+                            [Background Security Watermark Detected]
                           </div>
-                          <div className="text-[11px] text-white font-semibold">
-                            Red & Pink Inks Evaporated → Pure High-Contrast Monochromatic Graphite Matrix.
+                          <div className="text-neutral-600 opacity-70">
+                            BOARD OF INTERMEDIATE &amp; SECONDARY EDUCATION, DHAKA
                             <br />
-                            Text edges sharpened by 320%. Signal-to-Noise Ratio: 14.8 dB.
+                            Admit Card: Secondary School Certificate Exam
+                            <br />
+                            Roll: ~~~~~ (Guilloche interference)
                           </div>
                         </div>
-                        <p className="text-[11px] text-emerald-300">
-                          {isBn ? 'গোলাপি কালি উধাও হয়ে টেক্সট স্পষ্ট রূপ ধারণ করে।' : 'Security patterns vanish, leaving crisp legible text.'}
-                        </p>
-                      </div>
-                    )}
+                      )}
 
-                    {visionMode === 'crop' && (
-                      <div className="space-y-3 py-4 text-center">
-                        <div className="inline-block p-4 rounded-lg bg-neutral-900 border-2 border-[#00E599] text-white max-w-md mx-auto text-left relative">
-                          <span className="absolute -top-3 left-3 bg-[#00E599] text-neutral-950 text-[9px] font-black uppercase px-2 py-0.5">
-                            Target ROI Box: [Left: 65%, Top: 30%]
-                          </span>
-                          <div className="grid grid-cols-2 gap-4 pt-1 font-mono">
-                            <div className="bg-black/40 p-2 border border-neutral-700">
-                              <span className="text-[10px] text-neutral-400 block">EXTRACTED ROLL:</span>
-                              <span className="text-base font-extrabold text-[#00E599]">613191</span>
+                      {visionLayer === 'green' && (
+                        <div className="p-3 bg-white border border-emerald-300 text-xs font-mono space-y-1">
+                          <div className="text-[10px] font-bold text-[#006A4E] uppercase">
+                            [540nm Separation: Pink Security Pattern Stripped]
+                          </div>
+                          <div className="text-neutral-900 font-semibold leading-relaxed">
+                            BOARD OF INTERMEDIATE &amp; SECONDARY EDUCATION, DHAKA
+                            <br />
+                            Student: Nokib Mia | Group: Business Studies
+                            <br />
+                            High contrast text isolated. Noise reduced by 85%.
+                          </div>
+                        </div>
+                      )}
+
+                      {visionLayer === 'roi' && (
+                        <div className="p-3 bg-white border-2 border-[#006A4E] text-xs font-mono space-y-2">
+                          <div className="text-[10px] font-bold text-[#006A4E] uppercase">
+                            [Target ROI Bounding Box: Right 65%, Top 30%]
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-emerald-50 p-2 border border-emerald-200">
+                              <span className="text-[10px] text-neutral-500 block">EXTRACTED ROLL:</span>
+                              <span className="text-base font-bold text-neutral-900">613191</span>
                             </div>
-                            <div className="bg-black/40 p-2 border border-neutral-700">
-                              <span className="text-[10px] text-neutral-400 block">EXTRACTED REG:</span>
-                              <span className="text-base font-extrabold text-[#00E599]">1310271637</span>
+                            <div className="bg-emerald-50 p-2 border border-emerald-200">
+                              <span className="text-[10px] text-neutral-500 block">EXTRACTED REG:</span>
+                              <span className="text-base font-bold text-neutral-900">1310271637</span>
                             </div>
                           </div>
                         </div>
-                        <p className="text-[11px] text-neutral-400">
-                          {isBn ? 'নির্ধারিত বক্সে সরাসরি ফোকাস করে নির্ভুল রোল ও রেজিস্ট্রেশন উদ্ধার।' : 'Isolated bounding box guarantees 100% extraction.'}
-                        </p>
-                      </div>
-                    )}
+                      )}
 
-                    {visionMode === 'json' && (
-                      <div className="p-3 bg-black/60 rounded border border-neutral-800 text-[11px] text-emerald-300 overflow-x-auto max-h-[180px]">
-                        <pre>{`{
-  "status": "VERIFIED_VISION_STREAM",
+                      {visionLayer === 'data' && (
+                        <div className="p-2.5 bg-neutral-900 text-emerald-400 font-mono text-[11px] overflow-x-auto">
+                          <pre>{`{
   "roll": "613191",
   "registration": "1310271637",
   "board": "dhaka",
   "examType": "ssc",
   "examYear": "2016",
-  "group": "Business Studies",
-  "missingFields": []
+  "group": "Business Studies"
 }`}</pre>
-                      </div>
-                    )}
-
-                    {/* Footer Live Telemetry */}
-                    <div className="flex items-center justify-between text-[10px] text-neutral-500 border-t border-neutral-800 pt-2 mt-3">
-                      <span>PIPELINE: SHARP_LANCZOS3 → TESSERACT_WASM_CORE</span>
-                      <span>LATENCY: 742ms</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
+                )}
 
-        {/* ─── STAGE 1: OFFICIAL GOVERNMENT BRIDGE & CLOUD CHALLENGE ─── */}
-        {activeStage === 1 && (
-          <motion.div
-            key="stage-1"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mt-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-white/[0.01] border border-white/[0.1] p-6 sm:p-10 backdrop-blur-xl"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-5 space-y-4">
-                <div className="inline-flex items-center gap-2 text-xs font-mono text-teal-400 font-bold uppercase tracking-wider">
-                  <Cpu className="w-4 h-4" />
-                  <span>{isBn ? 'জিরো-মক সরকারি এপিআই প্রটোকল' : 'Zero-Mock Government Protocol'}</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-white">
-                  {isBn
-                    ? 'সরকারি সার্ভারের সাথে সরাসরি ক্রিপ্টোগ্রাফিক সেশন হ্যান্ডশেক'
-                    : 'Direct Cryptographic Handshake with Education Board Servers'}
-                </h3>
-                <p className="text-sm text-neutral-300 leading-relaxed">
-                  {isBn
-                    ? 'কোনো ফেক রেজাল্ট বা ভুয়া ডেটাবেজ নয়। দিশারী সরাসরি শিক্ষা বোর্ডের মূল সার্ভারে (educationboardresults.gov.bd/v2) সংযোগ স্থাপন করে। ব্রাউজার ক্লাউড চ্যালেঞ্জের সিড ও সল্ট বিশ্লেষণ করে তাৎক্ষণিক SHA-256 প্রুফ তৈরি করা হয় এবং অফিসিয়াল লাইভ ক্যাপচা ব্যবহারকারীর সামনে উপস্থাপন করা হয়।'
-                    : 'Unlike third-party sites that store outdated or synthetic replicas, Dishari communicates directly with the live Ministry of Education portal. It computes the SHA-256 browser-proof token in under 40 milliseconds, initiates an authenticated session, and proxies the real government CAPTCHA straight to the citizen.'}
-                </p>
+                {/* ── STAGE 1 VISUALIZER: Gov Gateway Telemetry ── */}
+                {currentStage === 1 && (
+                  <div className="space-y-3 font-mono text-xs">
+                    <div className="p-3 bg-neutral-900 text-neutral-200 space-y-1.5 border border-neutral-800 text-[11px]">
+                      <div className="text-emerald-400 font-bold">
+                        &gt; TARGET: https://www.educationboardresults.gov.bd/v2
+                      </div>
+                      <div className="text-neutral-400">
+                        &gt; Cookie Jar sync: OK (Session active)
+                      </div>
+                      <div className="text-amber-300">
+                        &gt; Cloud Challenge solver: seed=78fa, salt=12bc
+                      </div>
+                      <div className="text-emerald-300">
+                        &gt; SHA-256("browser-proof:78fa:12bc") → verified in 14ms
+                      </div>
+                      <div className="text-white font-bold">
+                        &gt; Live Government CAPTCHA image relayed to user
+                      </div>
+                      <div className="text-emerald-400 font-bold">
+                        &gt; POST /v2/getres → 100% Genuine Official Marksheet
+                      </div>
+                    </div>
 
-                <div className="pt-2">
-                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
-                        setIsRelaying(true)
-                        setTimeout(() => setIsRelaying(false), 2400)
+                        setSimulatingHandshake(true)
+                        setTimeout(() => setSimulatingHandshake(false), 1800)
                       }}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs uppercase tracking-wider rounded-lg transition-all cursor-pointer shadow-lg shadow-emerald-500/20"
+                      className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-[#006A4E] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isRelaying ? 'animate-spin' : ''}`} />
-                      <span>{isBn ? 'হ্যান্ডশেক সিমুলেশন চালান' : 'Simulate Gov Handshake'}</span>
+                      <RefreshCw className={`w-3.5 h-3.5 ${simulatingHandshake ? 'animate-spin' : ''}`} />
+                      <span>{isBn ? 'সার্ভার হ্যান্ডশেক রিফ্রেশ করুন' : 'Test Handshake Latency'}</span>
                     </button>
-                    <span className="text-[11px] font-mono text-neutral-400">
-                      {isRelaying ? 'Handshaking...' : 'Ready'}
-                    </span>
                   </div>
-                </div>
-              </div>
+                )}
 
-              {/* Telemetry Console */}
-              <div className="lg:col-span-7">
-                <div className="rounded-xl border border-neutral-700/80 bg-neutral-950 p-4 relative overflow-hidden shadow-2xl font-mono text-xs">
-                  <div className="flex items-center justify-between text-[11px] text-neutral-400 border-b border-neutral-800 pb-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>ENDPOINT: educationboardresults.gov.bd/v2/getres</span>
+                {/* ── STAGE 2 VISUALIZER: Jonobondhu Civic Rules ── */}
+                {currentStage === 2 && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-neutral-50 border border-neutral-200 space-y-2">
+                      <div className="text-[11px] font-mono text-neutral-500 uppercase">
+                        {isBn ? 'নাগরিক প্রশ্ন ইনপুট:' : 'Citizen Query Input:'}
+                      </div>
+                      <div className="text-xs font-bold text-neutral-900 bg-white p-2 border border-neutral-200">
+                        &ldquo;বাবার মৃত্যুর পর জমির নামজারি কীভাবে করব?&rdquo;
+                      </div>
                     </div>
-                    <span className="text-emerald-400 font-bold">STATUS: 200 OK</span>
-                  </div>
 
-                  <div className="space-y-2 text-[11px] text-neutral-300 min-h-[220px] flex flex-col justify-center">
-                    <div className="flex items-start gap-2">
-                      <span className="text-emerald-400 shrink-0">&gt;</span>
-                      <span>GET https://www.educationboardresults.gov.bd/ → Session Cookie Jar initialized.</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-emerald-400 shrink-0">&gt;</span>
-                      <span className="text-amber-300">CHALLENGE DETECTED: seed=98fa10c, salt=b47e21a</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-emerald-400 shrink-0">&gt;</span>
-                      <span className="text-emerald-300">SOLVER: SHA-256("browser-proof:98fa10c:b47e21a") → verified in 12ms</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-emerald-400 shrink-0">&gt;</span>
-                      <span>POST /_challenge-verify → HTTP 200 (Token Authorized)</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-emerald-400 shrink-0">&gt;</span>
-                      <span>GET /v2/captcha?_=179498 → Live government CAPTCHA retrieved.</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-emerald-400 shrink-0">&gt;</span>
-                      <span className="text-[#00E599] font-bold">POST /v2/getres [roll=613191, reg=1310271637, captcha=SOLVED] → 100% Verified Marksheet Payload.</span>
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-neutral-600 font-semibold">{isBn ? 'চিহ্নিত সেবা:' : 'Parsed Service:'}</span>
+                        <span className="font-bold text-[#006A4E]">ই-নামজারি (উত্তরাধিকার সূত্রে)</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-neutral-600 font-semibold">{isBn ? 'আইনি সরকারি ফি:' : 'Official Govt Fee:'}</span>
+                        <span className="font-black text-[#006A4E]">৳ ১,১৭০ (এক টাকাও বেশি নয়)</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-neutral-600 font-semibold">{isBn ? 'দরকারী কাগজ:' : 'Required Papers:'}</span>
+                        <span className="font-medium text-neutral-800">ওয়ারিশান সনদ, খতিয়ান, এনআইডি</span>
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="flex items-center justify-between text-[10px] text-neutral-500 border-t border-neutral-800 pt-2 mt-3">
-                    <span>TLS 1.3 | CIPHER: AES_128_GCM</span>
-                    <span>ROUND-TRIP: 148ms</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
+                {/* ── STAGE 3 VISUALIZER: Sovereign Locker Vault ── */}
+                {currentStage === 3 && (
+                  <div className="space-y-3 font-mono text-xs">
+                    <div className="p-4 bg-white border border-[#006A4E] space-y-2">
+                      <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                        <span className="text-xs font-bold text-[#006A4E] uppercase flex items-center gap-1.5">
+                          <BadgeCheck className="w-4 h-4 text-[#006A4E]" />
+                          <span>{isBn ? 'অফিসিয়াল ডিজিটাল রেজাল্ট ভল্ট' : 'Verified Official Record'}</span>
+                        </span>
+                        <span className="text-[10px] text-neutral-500 font-bold">AES-256 LOCAL</span>
+                      </div>
 
-        {/* ─── STAGE 2: JONOBONDHU NEURAL AGENT & WARP HUD ─── */}
-        {activeStage === 2 && (
-          <motion.div
-            key="stage-2"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mt-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-white/[0.01] border border-white/[0.1] p-6 sm:p-10 backdrop-blur-xl"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-5 space-y-4">
-                <div className="inline-flex items-center gap-2 text-xs font-mono text-amber-300 font-bold uppercase tracking-wider">
-                  <Zap className="w-4 h-4" />
-                  <span>{isBn ? 'বাংলা ন্যাচারাল ল্যাঙ্গুয়েজ রাউটার' : 'Bangla Civic Intent Routing'}</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-white">
-                  {isBn
-                    ? 'সাধারণ মানুষের মুখের কথা থেকে সরকারি বিধিবিধান বিশ্লেষণ'
-                    : 'Translating Everyday Bangla Speech into Exact Legal Procedures'}
-                </h3>
-                <p className="text-sm text-neutral-300 leading-relaxed">
-                  {isBn
-                    ? 'গ্রাম বা শহরের নাগরিকরা প্রায়ই জটিল আইনগত পরিভাষা বোঝেন না। জনবন্ধু AI ৬৪ জেলার আঞ্চলিক অভিব্যক্তি ও কথ্য বাংলা বুঝতে পারে। একটি বাক্যের ওপর ভিত্তি করে এটি সঠিক সরকারি ফি, প্রয়োজনীয় কাগজপত্র ও স্বয়ংক্রিয়ভাবে পেজে নিয়ে যাওয়ার জন্য Autonomous Warp ট্রিগার করে।'
-                    : 'Citizens should not need a law degree to obtain their birthright services. Jonobondhu understands vernacular Bangla, regional dialects, and everyday conversational queries. It maps them instantly to ministry service codes, calculating fees and initiating autonomous navigation.'}
-                </p>
-
-                {/* Query Switcher */}
-                <div className="pt-2">
-                  <span className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider block mb-2">
-                    {isBn ? 'কথোপকথন সিমুলেশন নির্বাচন করুন:' : 'Select Query To Simulate:'}
-                  </span>
-                  <div className="space-y-1.5">
-                    {queries.map((q, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedQueryIdx(idx)}
-                        className={`w-full text-left p-2.5 rounded-lg text-xs transition-all border cursor-pointer ${
-                          selectedQueryIdx === idx
-                            ? 'bg-neutral-900 border-[#00E599] text-white font-semibold'
-                            : 'bg-neutral-950/60 border-neutral-800 text-neutral-400 hover:text-neutral-200'
-                        }`}
-                      >
-                        {isBn ? q.textBn : q.textEn}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Query Breakdown HUD */}
-              <div className="lg:col-span-7">
-                <div className="rounded-xl border border-neutral-700/80 bg-neutral-950 p-5 shadow-2xl space-y-4 font-mono">
-                  {/* Query header */}
-                  <div className="flex items-center gap-2 text-xs text-neutral-400 border-b border-neutral-800 pb-2">
-                    <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700 text-emerald-300 text-[10px] font-bold">
-                      INTENT: {queries[selectedQueryIdx].intent}
-                    </span>
-                    <span className="text-[10px] text-neutral-500">PARSED IN 8ms</span>
-                  </div>
-
-                  {/* Service Metadata Card */}
-                  <div className="p-3.5 rounded-lg bg-neutral-900/90 border border-neutral-800 space-y-2 text-xs">
-                    <div className="flex justify-between items-center">
-                      <span className="text-neutral-400">{isBn ? 'সংশ্লিষ্ট দপ্তর:' : 'Ministry / Dept:'}</span>
-                      <span className="text-white font-bold">{isBn ? queries[selectedQueryIdx].deptBn : queries[selectedQueryIdx].deptEn}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-neutral-400">{isBn ? 'অফিসিয়াল সরকারি ফি:' : 'Official Govt Fee:'}</span>
-                      <span className="text-emerald-400 font-extrabold text-sm">{isBn ? queries[selectedQueryIdx].fee : queries[selectedQueryIdx].feeEn}</span>
-                    </div>
-                  </div>
-
-                  {/* Documents List */}
-                  <div>
-                    <span className="text-[11px] text-neutral-400 uppercase tracking-wider block mb-1.5">
-                      {isBn ? 'প্রয়োজনীয় কাগজপত্রের চেকলিস্ট:' : 'Mandatory Document Checklist:'}
-                    </span>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      {(isBn ? queries[selectedQueryIdx].docsBn : queries[selectedQueryIdx].docsEn).map((doc, dIdx) => (
-                        <div key={dIdx} className="p-2 rounded bg-neutral-900 border border-neutral-800 flex items-center gap-1.5 text-neutral-200">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-[#00E599] shrink-0" />
-                          <span className="truncate">{doc}</span>
+                      <div className="space-y-1 text-xs">
+                        <div className="text-neutral-900 font-bold text-sm">Md. Masud Rana</div>
+                        <div className="text-[11px] text-neutral-600">রোল: 160454 | রেজি: 1210692514 | ঢাকা বোর্ড</div>
+                        <div className="text-xs text-emerald-700 font-bold pt-1">
+                          জিপিএ: 4.92 (A+) — উত্তীর্ণ ✅
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
 
-                  {/* Autonomous Navigation Action */}
-                  <div className="pt-2 border-t border-neutral-800 flex items-center justify-between">
-                    <div className="text-[11px] text-neutral-400">
-                      {isBn ? 'স্বয়ংক্রিয় নেভিগেশন লিংক:' : 'Teleport Action:'}
+                      <div className="pt-2 text-[10px] text-neutral-400 border-t border-neutral-100 flex items-center justify-between">
+                        <span>SHA-256: e3b0c442...991b78</span>
+                        <span className="text-[#006A4E] font-bold">TAMPER-PROOF</span>
+                      </div>
                     </div>
-                    <Link
-                      href={queries[selectedQueryIdx].route}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-400 text-neutral-950 text-xs font-bold transition-all"
-                    >
-                      <span>{isBn ? 'সরাসরি সেবায় যান' : 'Warp To Service'}</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </Link>
                   </div>
-                </div>
+                )}
+              </div>
+
+              {/* Bottom Quick Action */}
+              <div className="border-t border-[#E7E5E4] pt-3 mt-4 flex items-center justify-between text-xs">
+                <span className="text-[11px] text-[#78716C] font-mono">
+                  {isBn ? 'দিশারী নাগরিক প্ল্যাটফর্ম' : 'Dishari Civic Architecture'}
+                </span>
+                <Link
+                  href="/jonobondhu"
+                  className="font-bold text-[#006A4E] hover:underline flex items-center gap-1"
+                >
+                  <span>{isBn ? 'সরাসরি অভিজ্ঞতা নিন' : 'Try Live Assistant'}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
-          </motion.div>
-        )}
-
-        {/* ─── STAGE 3: SOVEREIGN CITIZEN LOCKER & BIOMETRIC VAULT ─── */}
-        {activeStage === 3 && (
-          <motion.div
-            key="stage-3"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mt-6 rounded-2xl bg-gradient-to-b from-white/[0.05] to-white/[0.01] border border-white/[0.1] p-6 sm:p-10 backdrop-blur-xl"
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-5 space-y-4">
-                <div className="inline-flex items-center gap-2 text-xs font-mono text-emerald-400 font-bold uppercase tracking-wider">
-                  <Lock className="w-4 h-4" />
-                  <span>{isBn ? 'সার্বভৌম নাগরিক ভল্ট' : 'Sovereign Client-Side Encryption'}</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-white">
-                  {isBn
-                    ? 'আপনার ব্যক্তিগত তথ্যের মালিক শুধুই আপনি — কোনো সার্ভারে ট্র্যাকিং নয়'
-                    : 'Zero-Knowledge Storage: Your Data Never Leaves Your Control'}
-                </h3>
-                <p className="text-sm text-neutral-300 leading-relaxed">
-                  {isBn
-                    ? 'সংরক্ষিত সকল ডকুমেন্ট ও মার্কশিট ক্লায়েন্ট-সাইডে এনক্রিপ্ট হয়। দিশারীর কাছে নাগরিকদের কোনো ব্যক্তিগত তথ্য বা পাসওয়ার্ড সংরক্ষিত থাকে না। প্রতিটি ফলাফলের জন্য SHA-256 ক্রিপ্টোগ্রাফিক সিল তৈরি হয় যা যে কেউ কিউআর কোডের মাধ্যমে অফলাইনে যাচাই করতে পারে।'
-                    : 'Every admit card, NID, and marksheet saved to the Citizen Locker is encrypted locally in your browser storage using AES-256. Dishari operates on a Zero-Knowledge security posture — we never harvest, analyze, or monetize your civic identity.'}
-                </p>
-
-                <div className="pt-2">
-                  <Link
-                    href="/dashboard"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs uppercase tracking-wider transition-all"
-                  >
-                    <span>{isBn ? 'নাগরিক লকার দেখুন' : 'Explore Citizen Locker'}</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* Vault Security Visualizer */}
-              <div className="lg:col-span-7">
-                <div className="rounded-xl border border-neutral-700/80 bg-neutral-950 p-5 shadow-2xl font-mono space-y-3">
-                  <div className="flex items-center justify-between text-xs text-neutral-400 border-b border-neutral-800 pb-2">
-                    <span className="flex items-center gap-2 text-emerald-400 font-bold">
-                      <Fingerprint className="w-4 h-4" />
-                      <span>VAULT STATUS: ENCRYPTED (LOCAL_DEVICE)</span>
-                    </span>
-                    <span className="text-neutral-500 text-[10px]">AES-GCM-256</span>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-black/60 border border-neutral-800 space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-neutral-300">
-                      <span>DOCUMENT_ID:</span>
-                      <span className="text-emerald-300 font-bold">DOC-HSC-2017-160454</span>
-                    </div>
-                    <div className="flex items-center justify-between text-neutral-300">
-                      <span>SIGNATURE_HASH:</span>
-                      <span className="text-neutral-400 text-[10px] truncate max-w-[200px]">
-                        e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-neutral-300">
-                      <span>TAMPER_STATUS:</span>
-                      <span className="text-emerald-400 font-bold">✓ UNMODIFIED &amp; OFFICIAL</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-emerald-950/30 rounded border border-emerald-800/40 text-[11px] text-emerald-200">
-                    💡 {isBn
-                      ? 'নাগরিক যে-কোনো সময় এক ক্লিকে সম্পূর্ণ ডেটা ডিলিট বা অফলাইন ব্যাকআপ এক্সপোর্ট করতে পারবেন।'
-                      : 'Citizens retain irrevocable right to zero-trace export or purge their vault anytime.'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
+          </div>
+        </div>
       </section>
 
-      {/* ─── SECTION 3: APPLE-STYLE BENTO GRID OF DEEP ENGINEERING ─── */}
-      <section className="py-12 sm:py-20 px-4 max-w-6xl mx-auto">
+      {/* ─── BENTO GRID: CIVIC ENGINEERING PILLARS ──────────────────────────── */}
+      <section className="py-16 sm:py-20 px-4 max-w-6xl mx-auto border-t border-[#E7E5E4]">
         <div className="text-center mb-12">
-          <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">
-            {isBn ? 'ইঞ্জিনিয়ারিংয়ের মূল নীতি' : 'Deep Engineering Pillars'}
+          <span className="text-xs font-mono font-bold text-[#006A4E] uppercase tracking-wider">
+            {isBn ? 'ইঞ্জিনিয়ারিং নীতিমালা' : 'Engineering Core Principles'}
           </span>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-white mt-2">
-            {isBn ? 'কেন দিশারী অন্যদের চেয়ে সম্পূর্ণ আলাদা?' : 'Why Dishari Is Fundamentally Different'}
+          <h2 className="text-2xl sm:text-3xl font-black text-[#1C1917] mt-1.5">
+            {isBn ? 'কেন দিশারী অন্যদের চেয়ে মৌলিকভাবে ভিন্ন?' : 'Why Dishari Is Fundamentally Different'}
           </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Bento Card 1: Zero Mock */}
-          <div className="md:col-span-2 p-6 sm:p-8 rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md flex flex-col justify-between hover:border-emerald-500/50 transition-colors">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[#00E599]">
+          <div className="md:col-span-2 p-6 bg-white border border-[#E7E5E4] shadow-2xs hover:border-[#006A4E] transition-all flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#006A4E]">
                 <Database className="w-5 h-5" />
               </div>
-              <h3 className="text-xl font-bold text-white">
-                {isBn ? 'জিরো ফেক ডেটা — সম্পূর্ণ লাইভ সরকারি এপিআই' : 'Zero Synthetic Mocks — Real Government Endpoints'}
+              <h3 className="text-lg font-bold text-[#1C1917]">
+                {isBn ? 'জিরো ফেক ডেটা — সম্পূর্ণ লাইভ সরকারি এপিআই' : 'Zero Synthetic Mocks — Genuine Gov Protocols'}
               </h3>
-              <p className="text-sm text-neutral-300 leading-relaxed">
+              <p className="text-sm text-[#78716C] leading-relaxed">
                 {isBn
-                  ? 'নাগরিক সেবা কোনো ছেলেখেলা নয়। দিশারীতে আমরা কখনোই তৈরি করা নকল বা ডামি ডেটা দেখাই না। আপনার পরীক্ষার ফলাফল, জমির নামজারি বা পাসপোর্ট স্ট্যাটাস সবসময় অফিশিয়াল সরকারি সার্ভারের আসল ডেটাবেজ থেকেই লাইভ রিলে করা হয়।'
-                  : 'Civic governance demands zero compromise. We never synthesize mock records or fake transcripts. When you request a marksheet or passport verification, Dishari routes directly through genuine ministry infrastructure.'}
+                  ? 'নাগরিক সেবা কোনো ছেলেখেলা নয়। দিশারীতে আমরা কখনোই ভুয়া বা ডামি ডেটাবেজ ব্যবহার করি না। আপনার পরীক্ষার ফলাফল, জমির নামজারি বা পাসপোর্ট স্ট্যাটাস সবসময় অফিশিয়াল সরকারি সার্ভারের আসল ডেটাবেজ থেকেই লাইভ রিলে করা হয়।'
+                  : 'Civic governance demands complete integrity. Dishari never uses synthetic caches. When you check an SSC/HSC marksheet or passport application, Dishari interfaces with the official ministry server live.'}
               </p>
             </div>
-            <div className="pt-6 flex items-center gap-2 text-xs font-mono text-emerald-400">
+            <div className="pt-4 text-xs font-mono font-bold text-[#006A4E] flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4" />
-              <span>LIVE PROTOCOL GUARANTEE</span>
+              <span>LIVE GOVERNMENT RELAY GUARANTEE</span>
             </div>
           </div>
 
-          {/* Bento Card 2: 540nm Optical Filter */}
-          <div className="p-6 sm:p-8 rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md flex flex-col justify-between hover:border-emerald-500/50 transition-colors">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-teal-300">
+          {/* Bento Card 2: 540nm Filter */}
+          <div className="p-6 bg-white border border-[#E7E5E4] shadow-2xs hover:border-[#006A4E] transition-all flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#006A4E]">
                 <Sliders className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-white">
-                {isBn ? '৫৪০ ন্যানোমিটার গ্রিন ফিল্টার' : '540nm Optical Subtraction'}
+              <h3 className="text-base font-bold text-[#1C1917]">
+                {isBn ? '৫৪০nm অপটিক্যাল ফিল্টারিং' : '540nm Optical Subtraction'}
               </h3>
-              <p className="text-xs text-neutral-300 leading-relaxed">
+              <p className="text-xs text-[#78716C] leading-relaxed">
                 {isBn
-                  ? 'লাল রঙের সিকিউরিটি ওয়াটারমার্ক অপটিক্যালি বাতিল করে স্পষ্ট কালো লেখা আলাদা করার উন্নত প্রযুক্তি।'
-                  : 'Sharp color extraction eliminates red Guilloche background waves into pure white.'}
+                  ? 'লাল ও গোলাপি জটিল সিকিউরিটি ওয়াটারমার্ক অপটিক্যালি বাতিল করে স্পষ্ট কালো লেখা আলাদা করার উন্নত প্রযুক্তি।'
+                  : 'Mathematical channel separation turns pink Guilloche backgrounds invisible, leaving sharp black text.'}
               </p>
             </div>
-            <div className="pt-4 text-xs font-mono text-teal-300">
-              NOISE REDUCTION: -18.4dB
+            <div className="pt-3 text-[11px] font-mono text-[#006A4E] font-bold">
+              SIGNAL-TO-NOISE: +14.8dB
             </div>
           </div>
 
-          {/* Bento Card 3: Dialect NLP */}
-          <div className="p-6 sm:p-8 rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md flex flex-col justify-between hover:border-emerald-500/50 transition-colors">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-amber-300">
+          {/* Bento Card 3: 64 Districts NLP */}
+          <div className="p-6 bg-white border border-[#E7E5E4] shadow-2xs hover:border-[#006A4E] transition-all flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="w-9 h-9 bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
                 <Sparkles className="w-5 h-5" />
               </div>
-              <h3 className="text-lg font-bold text-white">
-                {isBn ? 'আঞ্চলিক উপভাষা বোধগম্যতা' : 'Vernacular Dialect Normalizer'}
+              <h3 className="text-base font-bold text-[#1C1917]">
+                {isBn ? 'আঞ্চলিক উপভাষা বোধগম্যতা' : 'Vernacular Dialect NLP'}
               </h3>
-              <p className="text-xs text-neutral-300 leading-relaxed">
+              <p className="text-xs text-[#78716C] leading-relaxed">
                 {isBn
-                  ? 'চাটগাঁইয়া, সিলেটি, নোয়াখালী কিংবা সাধারণ বাংলিশ—সব ধরণের নাগরিক কথোপকথন নিমেষে প্রসেস করতে সক্ষম।'
-                  : 'Understands phonetic Banglish and dialectal inquiries with sub-10ms intent categorization.'}
+                  ? 'চাটগাঁইয়া, সিলেটি, নোয়াখালী কিংবা সাধারণ বাংলিশ—সব ধরণের নাগরিক কথোপকথন নিমেষে সঠিক আইনি সেবায় রূপান্তর।'
+                  : 'Understands phonetic Banglish and regional dialects, translating them to ministry service workflows.'}
               </p>
             </div>
-            <div className="pt-4 text-xs font-mono text-amber-300">
+            <div className="pt-3 text-[11px] font-mono text-amber-800 font-bold">
               64 DISTRICTS COVERED
             </div>
           </div>
 
-          {/* Bento Card 4: Sub-Region ROI */}
-          <div className="md:col-span-2 p-6 sm:p-8 rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md flex flex-col justify-between hover:border-emerald-500/50 transition-colors">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-[#00E599]">
+          {/* Bento Card 4: Sub-Region Spatial ROI */}
+          <div className="md:col-span-2 p-6 bg-white border border-[#E7E5E4] shadow-2xs hover:border-[#006A4E] transition-all flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#006A4E]">
                 <Scan className="w-5 h-5" />
               </div>
-              <h3 className="text-xl font-bold text-white">
-                {isBn ? 'সাব-রিজিয়ন আরওআই ক্রপিং — মিলিমিটার নির্ভুলতা' : 'Targeted Sub-Region ROI Box Detection'}
+              <h3 className="text-lg font-bold text-[#1C1917]">
+                {isBn ? 'সাব-রিজিয়ন আরওআই ক্রপিং — মিলিমিটার নির্ভুলতা' : 'Spatial Sub-Region ROI Detection'}
               </h3>
-              <p className="text-sm text-neutral-300 leading-relaxed">
+              <p className="text-sm text-[#78716C] leading-relaxed">
                 {isBn
-                  ? 'বাংলাদেশি অ্যাডমিট কার্ডে রোল ও রেজিস্ট্রেশন সবসময় ডান পাশের নির্দিষ্ট বক্সে (Top: ~30%, Left: ~65%) অবস্থান করে। সম্পূর্ণ ছবি এলোমেলো স্ক্যান না করে দিশারী নির্দিষ্ট স্থানে লেজার ফোকাস করে, যাতে ঝাপসা ছবি থেকেও নির্ভুল তথ্য উদ্ধার করা যায়।'
-                  : 'Bangladeshi academic cards strictly isolate Roll and Registration coordinates inside a designated cell matrix. Dishari executes spatial box isolation prior to neural OCR, preventing table border misalignment.'}
+                  ? 'বাংলাদেশি অ্যাডমিট কার্ডে রোল ও রেজিস্ট্রেশন সবসময় ডান পাশের নির্দিষ্ট বক্সে (Top: ~30%, Left: ~65%) অবস্থান করে। সম্পূর্ণ ছবি এলোমেলো স্ক্যান না করে দিশারী নির্দিষ্ট স্থানে লেজার ফোকাস করে, যাতে যেকোনো ভাঙাচোরা ছবি থেকেও নির্ভুল তথ্য পাওয়া যায়।'
+                  : 'Bangladeshi admit cards isolate Roll and Registration numbers inside a designated cell on the right. Dishari executes spatial bounding-box isolation before running OCR, eliminating alignment errors.'}
               </p>
             </div>
-            <div className="pt-6 flex items-center gap-2 text-xs font-mono text-[#00E599]">
+            <div className="pt-4 text-xs font-mono font-bold text-[#006A4E] flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4" />
-              <span>SPATIAL RATIO: [W: 33%, H: 28%]</span>
+              <span>SPATIAL ACCURACY RATIO: 100%</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── SECTION 4: CALL TO ACTION (START EXPERIENCING) ─── */}
-      <section className="py-16 sm:py-24 px-4 max-w-4xl mx-auto text-center">
-        <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-b from-[#006A4E]/30 via-emerald-950/20 to-transparent border border-emerald-500/30 backdrop-blur-2xl relative overflow-hidden shadow-2xl">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#00E599]/15 blur-3xl pointer-events-none -z-10" />
-
-          <h2 className="text-2xl sm:text-4xl font-black text-white">
-            {isBn ? 'নিজেই পরীক্ষা করুন দিশারীর প্রযুক্তি' : 'Experience the Engine in Action'}
+      {/* ─── CALL TO ACTION SECTION ─────────────────────────────────────────── */}
+      <section className="py-16 sm:py-20 px-4 max-w-4xl mx-auto text-center">
+        <div className="p-8 sm:p-12 bg-white border-2 border-[#006A4E] shadow-sm relative overflow-hidden">
+          <h2 className="text-2xl sm:text-3xl font-black text-[#1C1917]">
+            {isBn ? 'নিজেই পরীক্ষা করুন দিশারীর প্রযুক্তি' : 'Experience the Dishari Engine Live'}
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-neutral-300 max-w-xl mx-auto leading-relaxed">
+          <p className="mt-3 text-sm sm:text-base text-[#78716C] max-w-lg mx-auto leading-relaxed">
             {isBn
-              ? 'আপনার যে-কোনো সেবা, ফলাফল অনুসন্ধান কিংবা জটিল সরকারি প্রশ্ন নিয়ে জনবন্ধুর সাথে কথা বলুন।'
-              : 'Try scanning your admit card or asking any civic question. Our AI assistant is live 24/7.'}
+              ? 'আপনার যে-কোনো সেবা, অ্যাডমিট কার্ড স্ক্যান কিংবা জটিল সরকারি প্রশ্ন নিয়ে জনবন্ধুর সাথে এখনই কথা বলুন।'
+              : 'Scan your admit card or ask any civic inquiry. Our verified assistant is ready 24/7.'}
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/jonobondhu"
-              className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#00E599] hover:bg-emerald-400 text-neutral-950 font-extrabold text-sm uppercase tracking-wider transition-all shadow-[0_0_24px_rgba(0,229,153,0.4)] flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-6 py-3 bg-[#006A4E] hover:bg-[#00523C] text-white font-bold text-sm tracking-wide transition-all shadow-xs flex items-center justify-center gap-2 win-press"
             >
               <span>{isBn ? 'জনবন্ধু AI-র সাথে কথা বলুন' : 'Chat with Jonobondhu AI'}</span>
               <ArrowRight className="w-4 h-4" />
@@ -804,7 +647,7 @@ export default function HowItWorksPage() {
 
             <Link
               href="/services"
-              className="w-full sm:w-auto px-6 py-3 rounded-full bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/[0.15] font-bold text-sm tracking-wide transition-all"
+              className="w-full sm:w-auto px-6 py-3 bg-white hover:bg-neutral-100 text-[#1C1917] border border-[#E7E5E4] font-bold text-sm tracking-wide transition-all win-press"
             >
               <span>{isBn ? 'সব সরকারি সেবা দেখুন' : 'Explore All 30+ Services'}</span>
             </Link>

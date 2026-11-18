@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import {
   Menu,
   X,
+  Home,
   FileText,
   Info,
   HelpCircle,
@@ -66,6 +67,7 @@ export default function Navbar() {
     window.location.href = '/'
   }
 
+  const isHomeActive = pathname === '/'
   const isServicesActive = pathname === '/services' || pathname.startsWith('/services/')
   const isOpportunitiesActive = pathname === '/opportunities'
   const isHowItWorksActive = pathname === '/how-it-works'
@@ -97,6 +99,25 @@ export default function Navbar() {
 
           {/* Center nav links — Flat Windows 10 style with smooth sliding indicator */}
           <div className="hidden lg:flex items-center gap-7">
+            <Link
+              href="/"
+              className={cn(
+                'relative font-bold text-sm tracking-wide transition-colors py-2 flex items-center win-press',
+                isHomeActive
+                  ? 'text-[#006A4E]'
+                  : 'text-neutral-700 hover:text-[#006A4E]'
+              )}
+            >
+              <span>{lang === 'bn' ? 'হোম' : 'Home'}</span>
+              {isHomeActive && (
+                <motion.div
+                  layoutId="navbar-active-nav-link"
+                  className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-[#006A4E]"
+                  transition={WIN10_INDICATOR_SPRING}
+                />
+              )}
+            </Link>
+
             <Link
               href="/services"
               className={cn(
@@ -338,6 +359,20 @@ export default function Navbar() {
 
               {/* Full-width Navigation Links */}
               <div className="px-4 py-2 flex flex-col divide-y divide-neutral-100 flex-1">
+                <Link
+                  href="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3.5 py-3.5 min-h-[48px] text-base font-bold transition-colors win-press',
+                    pathname === '/' ? 'text-[#006A4E]' : 'text-neutral-800 hover:text-[#006A4E]'
+                  )}
+                >
+                  <div className="w-8 h-8 border border-neutral-200 bg-neutral-50 flex items-center justify-center shrink-0 rounded-none">
+                    <Home className="w-4 h-4 text-[#006A4E]" />
+                  </div>
+                  <span>{lang === 'bn' ? 'হোম' : 'Home'}</span>
+                </Link>
+
                 <Link
                   href="/services"
                   onClick={() => setMobileMenuOpen(false)}
