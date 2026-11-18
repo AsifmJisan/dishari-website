@@ -374,7 +374,7 @@ export default function HowItWorksPage() {
                           <div className="text-neutral-900 font-semibold leading-relaxed">
                             BOARD OF INTERMEDIATE &amp; SECONDARY EDUCATION, DHAKA
                             <br />
-                            Student: Nokib Mia | Group: Business Studies
+                            Student: Sample Candidate (নমুনা শিক্ষার্থী) | Group: Science
                             <br />
                             High contrast text isolated. Noise reduced by 85%.
                           </div>
@@ -389,11 +389,11 @@ export default function HowItWorksPage() {
                           <div className="grid grid-cols-2 gap-2">
                             <div className="bg-emerald-50 p-2 border border-emerald-200">
                               <span className="text-[10px] text-neutral-500 block">EXTRACTED ROLL:</span>
-                              <span className="text-base font-bold text-neutral-900">613191</span>
+                              <span className="text-base font-bold text-neutral-900">102345</span>
                             </div>
                             <div className="bg-emerald-50 p-2 border border-emerald-200">
                               <span className="text-[10px] text-neutral-500 block">EXTRACTED REG:</span>
-                              <span className="text-base font-bold text-neutral-900">1310271637</span>
+                              <span className="text-base font-bold text-neutral-900">1510987654</span>
                             </div>
                           </div>
                         </div>
@@ -402,12 +402,12 @@ export default function HowItWorksPage() {
                       {visionLayer === 'data' && (
                         <div className="p-2.5 bg-neutral-900 text-emerald-400 font-mono text-[11px] overflow-x-auto">
                           <pre>{`{
-  "roll": "613191",
-  "registration": "1310271637",
+  "roll": "102345",
+  "registration": "1510987654",
   "board": "dhaka",
-  "examType": "ssc",
-  "examYear": "2016",
-  "group": "Business Studies"
+  "examType": "hsc",
+  "examYear": "2024",
+  "group": "Science"
 }`}</pre>
                         </div>
                       )}
@@ -494,10 +494,10 @@ export default function HowItWorksPage() {
                       </div>
 
                       <div className="space-y-1 text-xs">
-                        <div className="text-neutral-900 font-bold text-sm">Md. Masud Rana</div>
-                        <div className="text-[11px] text-neutral-600">রোল: 160454 | রেজি: 1210692514 | ঢাকা বোর্ড</div>
+                        <div className="text-neutral-900 font-bold text-sm">নমুনা শিক্ষার্থী (Sample Candidate)</div>
+                        <div className="text-[11px] text-neutral-600">রোল: 102345 | রেজি: 1510987654 | ঢাকা বোর্ড</div>
                         <div className="text-xs text-emerald-700 font-bold pt-1">
-                          জিপিএ: 4.92 (A+) — উত্তীর্ণ ✅
+                          জিপিএ: 5.00 (A+) — উত্তীর্ণ ✅
                         </div>
                       </div>
 
