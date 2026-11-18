@@ -1760,7 +1760,7 @@ export function JonobondhuChat() {
                   </div>
 
                   {/* ─── INPUT TERMINAL FOOTER (STRICTLY PINNED TO BOTTOM) ─── */}
-                  <div className="shrink-0 sticky bottom-0 z-20 bg-white border-t border-neutral-200/90 p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
+                  <div className="shrink-0 sticky bottom-0 z-20 bg-white border-t border-neutral-200/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
                     <div className="flex items-center gap-1.5 border border-neutral-300 bg-neutral-50/60 focus-within:bg-white focus-within:border-[#006A4E] focus-within:ring-2 focus-within:ring-[#006A4E]/10 transition-all rounded-xl px-3 py-1.5">
                       <input
                         type="text"
